@@ -16,13 +16,11 @@ publicadas por ONGs e coletivos comunitários.
 
 ## Status do projeto
 
-📋 **Estrutura do projeto** — pastas, documentação e configurações iniciais
-prontos. A implementação do código segue o [roadmap](./plan.md#7-roadmap-dia-a-dia).
+📋 **Dia 1 concluído** — estrutura do projeto configurada, models criados
+(Usuario, Oportunidade, Inscricao). A implementação dos endpoints segue o
+[roadmap](./plan.md#7-roadmap-dia-a-dia).
 
 ## Como rodar localmente
-
-> ⚠️ As dependências ainda não foram adicionadas ao `requirements.txt`.
-> Os comandos abaixo funcionarão após a implementação do código.
 
 ```bash
 # 1. Criar e ativar o ambiente virtual
@@ -59,9 +57,17 @@ socialink/
 ├── .env.example          # variáveis de ambiente (copie para .env)
 ├── README.md
 ├── plan.md               # problema, modelagem e roadmap completo
+├── requirements.txt      # dependências do projeto
 ├── app/
+│   ├── __init__.py
+│   ├── config.py         # configurações centralizadas
+│   ├── database.py       # engine e sessão do banco
+│   ├── main.py           # ponto de entrada FastAPI
+│   ├── models.py         # models SQLModel (Usuario, Oportunidade, Inscricao)
 │   └── routers/
 ├── tests/
+└── docs/
+    └── relatorio-dia1.md # relatório técnico do Dia 1
 ```
 
 ## Principais endpoints

@@ -1,0 +1,22 @@
+# Web framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# ORM e modelagem
+sqlmodel>=0.0.14
+
+# Autenticação JWT
+python-jose[cryptography]>=3.3.0
+
+# Hash de senhas
+passlib[bcrypt]>=1.7.4
+
+# Upload de arquivos (opcional, para referência)
+python-multipart>=0.0.6
+
+# Variáveis de ambiente
+python-dotenv>=1.0.0
+
+# Testes
+pytest>=7.4.0
+httpx>=0.25.0
