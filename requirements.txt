@@ -5,6 +5,9 @@ uvicorn[standard]>=0.24.0
 # ORM e modelagem
 sqlmodel>=0.0.14
 
+# Configurações com validação (usado em config.py)
+pydantic-settings>=2.1.0
+
 # Autenticação JWT
 python-jose[cryptography]>=3.3.0
 
