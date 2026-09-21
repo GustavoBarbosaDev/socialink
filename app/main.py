@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 
 from app.config import get_settings
 from app.database import criar_tabelas
+from app.routers import auth
 
 
 settings = get_settings()
@@ -25,6 +26,9 @@ app = FastAPI(
     description="API para gerenciamento de voluntariado em ONGs",
     lifespan=lifespan
 )
+
+# Incluir routers
+app.include_router(auth.router)
 
 
 @app.get("/")
