@@ -19,3 +19,15 @@ class UsuarioResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class LoginRequest(BaseModel):
+    """Schema para entrada de dados no login."""
+    email: EmailStr
+    senha: str
+
+
+class TokenResponse(BaseModel):
+    """Schema para resposta do token JWT."""
+    access_token: str
+    token_type: str = "bearer"

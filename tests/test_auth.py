@@ -159,3 +159,107 @@ def test_registrar_senha_hash(client: TestClient, session: Session):
     assert usuario is not None
     assert usuario.senha_hash != "123456"
     assert usuario.senha_hash.startswith("$2b$")
+
+
+# ============================================================
+# Testes de Login
+# ============================================================
+
+def test_login_sucesso(client: TestClient):
+    """Testa login com sucesso retorna token JWT."""
+    # Registrar usuário primeiro
+    client.post(
+        "/auth/registrar",
+        json={
+            "nome": "João Silva",
+            "email": "joao@example.com",
+            "senha": "123456",
+            "papel": "voluntario"
+        }
+    )
+
+    # Fazer login
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "joao@example.com",
+            "senha": "123456"
+        }
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "access_token" in data
+    assert data["token_type"] == "bearer"
+
+
+def test_login_email_inexistente(client: TestClient):
+    """Testa login com email inexistente retorna erro 401."""
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "naoexiste@example.com",
+            "senha": "123456"
+        }
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Email ou senha incorretos"
+
+
+def test_login_senha_incorreta(client: TestClient):
+    """Testa login com senha incorreta retorna erro 401."""
+    # Registrar usuário primeiro
+    client.post(
+        "/auth/registrar",
+        json={
+            "nome": "João Silva",
+            "email": "joao@example.com",
+            "senha": "123456",
+            "papel": "voluntario"
+        }
+    )
+
+    # Tentar login com senha errada
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "joao@example.com",
+            "senha": "senhaerrada"
+        }
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Email ou senha incorretos"
+
+
+def test_login_token_valido(client: TestClient):
+    """Testa que o token retornado é um JWT válido."""
+    from jose import jwt
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    # Registrar usuário primeiro
+    client.post(
+        "/auth/registrar",
+        json={
+            "nome": "João Silva",
+            "email": "joao@example.com",
+            "senha": "123456",
+            "papel": "voluntario"
+        }
+    )
+
+    # Fazer login
+    response = client.post(
+        "/auth/login",
+        json={
+            "email": "joao@example.com",
+            "senha": "123456"
+        }
+    )
+    token = response.json()["access_token"]
+
+    # Decodificar e verificar payload
+    payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+    assert payload["sub"] == "joao@example.com"
+    assert payload["papel"] == "voluntario"
+    assert "exp" in payload
