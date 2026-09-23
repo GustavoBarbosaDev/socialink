@@ -3,7 +3,7 @@
 API backend que conecta **voluntários** a **oportunidades de voluntariado**
 publicadas por ONGs e coletivos comunitários.
 
-> 📄 Veja o [plan.md](./plan.md) para o problema que o projeto resolve, a
+> Veja o [plan.md](./plan.md) para o problema que o projeto resolve, a
 > modelagem de dados completa e o roadmap dia a dia.
 
 ## Stack
@@ -16,7 +16,7 @@ publicadas por ONGs e coletivos comunitários.
 
 ## Status do projeto
 
-📋 **Dia 4 concluído** — autenticação JWT implementada. Os endpoints de
+**Dia 4 concluído** — autenticação JWT implementada. Os endpoints de
 registro e login de usuários já funcionam, com senhas hasheadas por bcrypt
 e tokens JWT para autenticação stateless. A implementação dos endpoints segue o
 [roadmap](./plan.md#7-roadmap-dia-a-dia).
@@ -79,8 +79,8 @@ socialink/
 
 | Método | Rota | Descrição | Status |
 |---|---|---|---|
-| POST | `/auth/registrar` | Cria um usuário (organização ou voluntário) | ✅ Implementado |
-| POST | `/auth/login` | Retorna um token JWT | ✅ Implementado |
+| POST | `/auth/registrar` | Cria um usuário (organização ou voluntário) | Implementado |
+| POST | `/auth/login` | Retorna um token JWT | Implementado |
 | GET | `/oportunidades` | Lista oportunidades (filtro por local) | Planejado |
 | POST | `/oportunidades` | Cria oportunidade (só organização) | Planejado |
 | POST | `/oportunidades/{id}/inscricoes` | Voluntário se candidata a uma vaga | Planejado |

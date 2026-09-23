@@ -13,7 +13,7 @@
 | Arquivo | Descrição |
 |---------|-----------|
 | `requirements.txt` | Lista de dependências do projeto |
-| `app/config.py` | Configurações centralizadas using pydantic-settings |
+| `app/config.py` | Configurações centralizadas com pydantic-settings |
 | `app/database.py` | Configuração do engine SQLModel e sessão do banco |
 | `app/models.py` | Models de domínio (Usuario, Oportunidade, Inscricao) |
 | `app/main.py` | Ponto de entrada da aplicação FastAPI |
@@ -247,5 +247,5 @@ uvicorn app.main:app --reload
 
 ---
 
-**Status:** ✅ Dia 1 concluído  
+**Status:** Dia 1 concluído  
 **Próximo:** Dia 2 — Rodar tabelas e testar no Swagger

@@ -12,10 +12,10 @@
 
 | Item | Status |
 |------|--------|
-| Virtual environment (`venv/`) | ✅ Configurado |
-| Dependências instaladas | ✅ Todas presentes |
-| Arquivo `.env` | ✅ Configurado com SECRET_KEY |
-| Banco de dados `socialink.db` | ✅ Criado automaticamente |
+| Virtual environment (`venv/`) | Configurado |
+| Dependências instaladas | Todas presentes |
+| Arquivo `.env` | Configurado com SECRET_KEY |
+| Banco de dados `socialink.db` | Criado automaticamente |
 
 ### 1.2 Tabelas criadas no banco
 
@@ -29,10 +29,10 @@
 
 | Endpoint | Método | Status | Resposta |
 |----------|--------|--------|----------|
-| `/` | GET | ✅ 200 | `{"app": "Socialink", "version": "0.1.0", "docs": "/docs"}` |
-| `/health` | GET | ✅ 200 | `{"status": "ok"}` |
-| `/docs` | GET | ✅ 200 | Swagger UI funcional |
-| `/openapi.json` | GET | ✅ 200 | Schema OpenAPI gerado |
+| `/` | GET | 200 | `{"app": "Socialink", "version": "0.1.0", "docs": "/docs"}` |
+| `/health` | GET | 200 | `{"status": "ok"}` |
+| `/docs` | GET | 200 | Swagger UI funcional |
+| `/openapi.json` | GET | 200 | Schema OpenAPI gerado |
 
 ---
 
@@ -84,7 +84,7 @@ O Swagger UI está acessível em `http://localhost:8000/docs` com:
 
 ## 3. Conceitos-chave aplicados
 
-### 3.1生命周期 (Lifespan)
+### 3.1 Ciclo de vida (Lifespan)
 
 O FastAPI moderno usa `lifespan` com `@asynccontextmanager` em vez do deprecated `@app.on_event`:
 
@@ -131,9 +131,8 @@ O SQLModel permite:
 
 ### 4.1 `check_same_thread=False`
 
-**Problema:** SQLite por padrão não permite múltiplas threads.
+SQLite por padrão não permite múltiplas threads. Resolvido com configuração no `database.py`:
 
-**Solução:** Configuração no `database.py`:
 ```python
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
@@ -142,9 +141,8 @@ if settings.DATABASE_URL.startswith("sqlite"):
 
 ### 4.2 Logs de SQL
 
-**Problema:** Queries SQL poluíam o console.
+Queries SQL poluíam o console. Configuração condicional via `DEBUG` resolveu:
 
-**Solução:** Configuração condicional via `DEBUG`:
 ```python
 engine = create_engine(
     settings.DATABASE_URL,
@@ -185,5 +183,5 @@ curl http://localhost:8000/health
 
 ---
 
-**Status:** ✅ Dia 2 concluído  
+**Status:** Dia 2 concluído  
 **Próximo:** Dia 3 — Implementar `POST /auth/registrar`

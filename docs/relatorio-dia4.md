@@ -12,7 +12,7 @@
 
 | Endpoint | Método | Descrição | Status |
 |----------|--------|-----------|--------|
-| `/auth/login` | POST | Autenticação e retorno de token JWT | ✅ |
+| `/auth/login` | POST | Autenticação e retorno de token JWT | OK |
 
 ### 1.2 Schema criado
 
@@ -25,10 +25,10 @@
 
 | Teste | Resultado |
 |-------|-----------|
-| `test_login_sucesso` | ✅ Passou |
-| `test_login_email_inexistente` | ✅ Passou |
-| `test_login_senha_incorreta` | ✅ Passou |
-| `test_login_token_valido` | ✅ Passou |
+| `test_login_sucesso` | Passou |
+| `test_login_email_inexistente` | Passou |
+| `test_login_senha_incorreta` | Passou |
+| `test_login_token_valido` | Passou |
 
 ---
 
@@ -149,9 +149,8 @@ Servidor B (requisição) → Valida token → Acessa recurso
 
 ### 4.1 Token sem data de expiração
 
-**Problema:** Token permanecia válido indefinidamente.
+O token permanecia válido indefinidamente — resolvido adicionando `exp` ao payload:
 
-**Solução:** Adicionar `exp` ao payload:
 ```python
 expire = datetime.now(timezone.utc) + timedelta(minutes=30)
 to_encode.update({"exp": expire})
@@ -159,9 +158,8 @@ to_encode.update({"exp": expire})
 
 ### 4.2 Resposta genérica de erro
 
-**Problema:** Mensagem de erro vazia ou inexistente.
+Mensagem de erro vazia ou inexistente. A solução foi detalhar o HTTPException:
 
-**Solução:** Detalhe descritivo no HTTPException:
 ```python
 raise HTTPException(
     status_code=401,
@@ -198,20 +196,20 @@ curl http://localhost:8000/me \
 
 ```
 tests/test_auth.py - 11 testes
-├── test_registrar_usuario_voluntario ✅
-├── test_registrar_usuario_organizacao ✅
-├── test_registrar_email_duplicado ✅
-├── test_registrar_email_invalido ✅
-├── test_registrar_campos_obrigatorios ✅
-├── test_registrar_papel_padrao ✅
-├── test_registrar_senha_hash ✅
-├── test_login_sucesso ✅
-├── test_login_email_inexistente ✅
-├── test_login_senha_incorreta ✅
-└── test_login_token_valido ✅
+├── test_registrar_usuario_voluntario
+├── test_registrar_usuario_organizacao
+├── test_registrar_email_duplicado
+├── test_registrar_email_invalido
+├── test_registrar_campos_obrigatorios
+├── test_registrar_papel_padrao
+├── test_registrar_senha_hash
+├── test_login_sucesso
+├── test_login_email_inexistente
+├── test_login_senha_incorreta
+└── test_login_token_valido
 ```
 
-**Total: 11/11 testes passando** ✅
+**Total: 11/11 testes passando**
 
 ---
 
@@ -224,5 +222,5 @@ tests/test_auth.py - 11 testes
 
 ---
 
-**Status:** ✅ Dia 4 concluído  
+**Status:** Dia 4 concluído  
 **Próximo:** Dia 5 — Implementar `get_current_user` em `dependencies.py`

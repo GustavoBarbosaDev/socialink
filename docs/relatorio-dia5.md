@@ -30,11 +30,11 @@
 
 | Teste | Resultado |
 |-------|-----------|
-| `test_get_current_user_sucesso` | ✅ Passou |
-| `test_get_current_user_token_ausente` | ✅ Passou |
-| `test_get_current_user_token_invalido` | ✅ Passou |
-| `test_get_current_user_email_nao_encontrado` | ✅ Passou |
-| `test_get_current_user_token_expirado` | ✅ Passou |
+| `test_get_current_user_sucesso` | Passou |
+| `test_get_current_user_token_ausente` | Passou |
+| `test_get_current_user_token_invalido` | Passou |
+| `test_get_current_user_email_nao_encontrado` | Passou |
+| `test_get_current_user_token_expirado` | Passou |
 
 ---
 
@@ -217,18 +217,16 @@ Cada camada retorna 401 se falhar.
 
 ### 4.1 Token ausente
 
-**Problema:** Requisição sem header Authorization.
+Requisição sem header Authorization. O `OAuth2PasswordBearer` retorna automaticamente:
 
-**Solução:** `OAuth2PasswordBearer` retorna automaticamente:
 ```json
 {"detail": "Not authenticated"}
 ```
 
 ### 4.2 JWT malformado
 
-**Problema:** Token com assinatura inválida.
+Token com assinatura inválida. Captura `JWTError` e retorna credenciais inválidas:
 
-**Solução:** Captura `JWTError` e retorna credenciais inválidas:
 ```python
 except JWTError:
     raise credentials_exception
@@ -236,9 +234,8 @@ except JWTError:
 
 ### 4.3 Usuário deletado após login
 
-**Problema:** Token válido mas usuário não existe mais.
+Token válido mas usuário não existe mais. Verificação no banco após decodificar:
 
-**Solução:** Verificação no banco após decodificar:
 ```python
 usuario = session.exec(stmt).first()
 if usuario is None:
@@ -273,8 +270,8 @@ curl http://localhost:8000/me \
 ## 6. Status dos testes
 
 ```
-tests/test_auth.py - 11 testes ✅
-tests/test_dependencies.py - 5 testes ✅
+tests/test_auth.py - 11 testes
+tests/test_dependencies.py - 5 testes
 
 Total: 16/16 testes passando
 ```
@@ -299,5 +296,5 @@ Total: 16/16 testes passando
 
 ---
 
-**Status:** ✅ Dia 5 concluído  
+**Status:** Dia 5 concluído  
 **Próximo:** Dia 6 — Implementar CRUD de oportunidades
