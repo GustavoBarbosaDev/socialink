@@ -47,6 +47,21 @@ def _criar_organizacao(session: Session, email: str = "ong@example.com") -> Usua
     return usuario
 
 
+def _criar_voluntario(session: Session, email: str = "voluntario@example.com") -> Usuario:
+    from app.routers.auth import get_password_hash
+
+    usuario = Usuario(
+        nome="Voluntário Teste",
+        email=email,
+        senha_hash=get_password_hash("123456"),
+        papel="voluntario",
+    )
+    session.add(usuario)
+    session.commit()
+    session.refresh(usuario)
+    return usuario
+
+
 def _fazer_login(client: TestClient, email: str, senha: str = "123456") -> str:
     response = client.post(
         "/auth/login",
@@ -125,6 +140,19 @@ def test_criar_oportunidade_campos_obrigatorios(client: TestClient, session: Ses
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 422
+
+
+def test_criar_oportunidade_voluntario_proibido(client: TestClient, session: Session):
+    vol = _criar_voluntario(session)
+    token = _fazer_login(client, vol.email)
+
+    response = client.post(
+        "/oportunidades/",
+        json=_dados_oportunidade(),
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Apenas organizações podem executar esta ação"
 
 
 # ============================================================
@@ -241,6 +269,34 @@ def test_atualizar_oportunidade_inexistente(client: TestClient, session: Session
     assert response.status_code == 404
 
 
+def test_atualizar_oportunidade_sem_token(client: TestClient):
+    response = client.patch("/oportunidades/1", json={"titulo": "Sem token"})
+    assert response.status_code == 401
+
+
+def test_atualizar_oportunidade_voluntario_nao_dono(
+    client: TestClient, session: Session
+):
+    org = _criar_organizacao(session)
+    vol = _criar_voluntario(session)
+    token_org = _fazer_login(client, org.email)
+    token_vol = _fazer_login(client, vol.email)
+
+    create_response = client.post(
+        "/oportunidades/",
+        json=_dados_oportunidade(),
+        headers={"Authorization": f"Bearer {token_org}"},
+    )
+    opp_id = create_response.json()["id"]
+
+    response = client.patch(
+        f"/oportunidades/{opp_id}",
+        json={"titulo": "Tentativa de Edição"},
+        headers={"Authorization": f"Bearer {token_vol}"},
+    )
+    assert response.status_code == 403
+
+
 # ============================================================
 # Testes de Remoção (DELETE /oportunidades/{id})
 # ============================================================
@@ -296,3 +352,34 @@ def test_remover_oportunidade_inexistente(client: TestClient, session: Session):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 404
+
+
+def test_remover_oportunidade_sem_token(client: TestClient):
+    response = client.delete("/oportunidades/1")
+    assert response.status_code == 401
+
+
+def test_remover_oportunidade_voluntario_nao_dono(
+    client: TestClient, session: Session
+):
+    org = _criar_organizacao(session)
+    vol = _criar_voluntario(session)
+    token_org = _fazer_login(client, org.email)
+    token_vol = _fazer_login(client, vol.email)
+
+    create_response = client.post(
+        "/oportunidades/",
+        json=_dados_oportunidade(),
+        headers={"Authorization": f"Bearer {token_org}"},
+    )
+    opp_id = create_response.json()["id"]
+
+    response = client.delete(
+        f"/oportunidades/{opp_id}",
+        headers={"Authorization": f"Bearer {token_vol}"},
+    )
+    assert response.status_code == 403
+
+    # Recurso continua existindo
+    get_response = client.get(f"/oportunidades/{opp_id}")
+    assert get_response.status_code == 200

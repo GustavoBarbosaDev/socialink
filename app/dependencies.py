@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.database import get_session
-from app.models import Usuario
+from app.models import Oportunidade, PapelUsuario, Usuario
 
 settings = get_settings()
 
@@ -40,3 +40,43 @@ def get_current_user(
         raise credentials_exception
 
     return usuario
+
+
+def get_current_organizacao(
+    usuario: Usuario = Depends(get_current_user),
+) -> Usuario:
+    """Garante que o usuário autenticado tenha papel 'organizacao'."""
+    if usuario.papel != PapelUsuario.ORGANIZACAO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas organizações podem executar esta ação",
+        )
+    return usuario
+
+
+def get_oportunidade_dono(
+    oportunidade_id: int,
+    usuario: Usuario = Depends(get_current_user),
+    session: Session = Depends(get_session),
+) -> Oportunidade:
+    """Carrega a oportunidade e garante que o usuário autenticado é o dono.
+
+    Ordem das verificações:
+    1. 404 — oportunidade não existe;
+    2. 401 — tratado antes por get_current_user (token ausente/inválido);
+    3. 403 — oportunidade existe, mas não pertence ao usuário.
+    """
+    oportunidade = session.get(Oportunidade, oportunidade_id)
+    if not oportunidade:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Oportunidade não encontrada",
+        )
+
+    if oportunidade.organizacao_id != usuario.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sem permissão para alterar esta oportunidade",
+        )
+
+    return oportunidade

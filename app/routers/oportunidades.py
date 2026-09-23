@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.dependencies import get_current_user
+from app.dependencies import get_current_organizacao, get_oportunidade_dono
 from app.models import Oportunidade, Usuario
 from app.schemas import (
     OportunidadeCreate,
@@ -21,9 +21,9 @@ router = APIRouter(prefix="/oportunidades", tags=["Oportunidades"])
 def criar_oportunidade(
     dados: OportunidadeCreate,
     session: Session = Depends(get_session),
-    usuario: Usuario = Depends(get_current_user),
+    usuario: Usuario = Depends(get_current_organizacao),
 ):
-    """Cria uma nova oportunidade de voluntariado (autenticação necessária)."""
+    """Cria uma nova oportunidade de voluntariado (apenas organizações)."""
     oportunidade = Oportunidade(
         titulo=dados.titulo,
         descricao=dados.descricao,
@@ -63,25 +63,11 @@ def detalhar_oportunidade(
 
 @router.patch("/{oportunidade_id}", response_model=OportunidadeResponse)
 def atualizar_oportunidade(
-    oportunidade_id: int,
     dados: OportunidadeUpdate,
+    oportunidade: Oportunidade = Depends(get_oportunidade_dono),
     session: Session = Depends(get_session),
-    usuario: Usuario = Depends(get_current_user),
 ):
     """Atualiza parcialmente uma oportunidade (apenas o dono)."""
-    oportunidade = session.get(Oportunidade, oportunidade_id)
-    if not oportunidade:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Oportunidade não encontrada",
-        )
-
-    if oportunidade.organizacao_id != usuario.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para editar esta oportunidade",
-        )
-
     dados_dict = dados.model_dump(exclude_unset=True)
     for campo, valor in dados_dict.items():
         setattr(oportunidade, campo, valor)
@@ -94,23 +80,9 @@ def atualizar_oportunidade(
 
 @router.delete("/{oportunidade_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remover_oportunidade(
-    oportunidade_id: int,
+    oportunidade: Oportunidade = Depends(get_oportunidade_dono),
     session: Session = Depends(get_session),
-    usuario: Usuario = Depends(get_current_user),
 ):
     """Remove uma oportunidade (apenas o dono)."""
-    oportunidade = session.get(Oportunidade, oportunidade_id)
-    if not oportunidade:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Oportunidade não encontrada",
-        )
-
-    if oportunidade.organizacao_id != usuario.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para remover esta oportunidade",
-        )
-
     session.delete(oportunidade)
     session.commit()
