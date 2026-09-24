@@ -16,9 +16,10 @@ publicadas por ONGs e coletivos comunitários.
 
 ## Status do projeto
 
-**Dia 4 concluído** — autenticação JWT implementada. Os endpoints de
-registro e login de usuários já funcionam, com senhas hasheadas por bcrypt
-e tokens JWT para autenticação stateless. A implementação dos endpoints segue o
+**Dia 8 concluído** — inscrição do voluntário implementada, com a regra
+"não duplicar" (409) e listagem das próprias inscrições. Antes disso já
+estavam prontos CRUD de oportunidades, autorização por dono do recurso e
+autenticação JWT. A implementação segue o
 [roadmap](./plan.md#7-roadmap-dia-a-dia).
 
 ## Como rodar localmente
@@ -48,8 +49,9 @@ fica em `http://127.0.0.1:8000/docs`.
 pytest
 ```
 
-A suite de testes cobre os endpoints de autenticação (registro e login),
-incluindo validações de entrada, hash de senhas e geração de tokens JWT.
+A suite de testes cobre autenticação (registro e login), CRUD de
+oportunidades, autorização por dono e inscrição de voluntários — incluindo
+validações de entrada, regra "não duplicar" e os caminhos de erro (401/403/404/409).
 
 ## Estrutura do projeto
 
@@ -68,11 +70,16 @@ socialink/
 │   ├── models.py         # models SQLModel (Usuario, Oportunidade, Inscricao)
 │   ├── schemas.py        # schemas Pydantic para request/response
 │   └── routers/
-│       └── auth.py       # endpoints de autenticação (registrar, login)
+│       ├── auth.py         # endpoints de autenticação (registrar, login)
+│       ├── oportunidades.py# CRUD de oportunidades (só dono edita/remove)
+│       └── inscricoes.py   # inscrição do voluntário + listagem própria
 ├── tests/
-│   └── test_auth.py      # testes dos endpoints de autenticação
+│   ├── test_auth.py        # testes de autenticação
+│   ├── test_dependencies.py# testes de get_current_user
+│   ├── test_oportunidades.py # testes do CRUD e autorização
+│   └── test_inscricoes.py  # testes de inscrição e regra "não duplicar"
 └── docs/
-    └── relatorio-dia1.md # relatório técnico do Dia 1
+    └── relatorio-dia8.md   # relatório técnico do Dia 8
 ```
 
 ## Principais endpoints
@@ -81,9 +88,12 @@ socialink/
 |---|---|---|---|
 | POST | `/auth/registrar` | Cria um usuário (organização ou voluntário) | Implementado |
 | POST | `/auth/login` | Retorna um token JWT | Implementado |
-| GET | `/oportunidades` | Lista oportunidades (filtro por local) | Planejado |
-| POST | `/oportunidades` | Cria oportunidade (só organização) | Planejado |
-| POST | `/oportunidades/{id}/inscricoes` | Voluntário se candidata a uma vaga | Planejado |
+| GET | `/oportunidades` | Lista oportunidades | Implementado |
+| POST | `/oportunidades` | Cria oportunidade (só organização) | Implementado |
+| PATCH | `/oportunidades/{id}` | Atualiza oportunidade (só o dono) | Implementado |
+| DELETE | `/oportunidades/{id}` | Remove oportunidade (só o dono) | Implementado |
+| POST | `/oportunidades/{id}/inscricoes` | Voluntário se candidata a uma vaga | Implementado |
+| GET | `/voluntario/me/inscricoes` | Lista as inscrições do voluntário | Implementado |
 | PATCH | `/inscricoes/{id}` | Organização aprova ou recusa uma inscrição | Planejado |
 
 Lista completa em [plan.md](./plan.md#5-endpoints-da-api).

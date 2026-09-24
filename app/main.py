@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from app.config import get_settings
 from app.database import criar_tabelas
-from app.routers import auth, oportunidades
+from app.routers import auth, inscricoes, oportunidades
 
 
 settings = get_settings()
@@ -30,6 +30,7 @@ app = FastAPI(
 # Incluir routers
 app.include_router(auth.router)
 app.include_router(oportunidades.router)
+app.include_router(inscricoes.router)
 
 
 @app.get("/")

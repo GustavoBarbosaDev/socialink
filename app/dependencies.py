@@ -54,25 +54,43 @@ def get_current_organizacao(
     return usuario
 
 
-def get_oportunidade_dono(
-    oportunidade_id: int,
+def get_current_voluntario(
     usuario: Usuario = Depends(get_current_user),
+) -> Usuario:
+    """Garante que o usuário autenticado tenha papel 'voluntario'."""
+    if usuario.papel != PapelUsuario.VOLUNTARIO:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Apenas voluntários podem executar esta ação",
+        )
+    return usuario
+
+
+def get_oportunidade(
+    oportunidade_id: int,
     session: Session = Depends(get_session),
 ) -> Oportunidade:
-    """Carrega a oportunidade e garante que o usuário autenticado é o dono.
-
-    Ordem das verificações:
-    1. 404 — oportunidade não existe;
-    2. 401 — tratado antes por get_current_user (token ausente/inválido);
-    3. 403 — oportunidade existe, mas não pertence ao usuário.
-    """
+    """Carrega a oportunidade do path ou retorna 404 se não existir."""
     oportunidade = session.get(Oportunidade, oportunidade_id)
     if not oportunidade:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Oportunidade não encontrada",
         )
+    return oportunidade
 
+
+def get_oportunidade_dono(
+    usuario: Usuario = Depends(get_current_user),
+    oportunidade: Oportunidade = Depends(get_oportunidade),
+) -> Oportunidade:
+    """Carrega a oportunidade e garante que o usuário autenticado é o dono.
+
+    Ordem das verificações:
+    1. 401 — token ausente/inválido (get_current_user);
+    2. 404 — oportunidade não existe (get_oportunidade);
+    3. 403 — oportunidade existe, mas não pertence ao usuário.
+    """
     if oportunidade.organizacao_id != usuario.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

@@ -1,6 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel, EmailStr, Field
-from app.models import PapelUsuario
+from app.models import PapelUsuario, StatusInscricao
 
 
 class UsuarioCreate(BaseModel):
@@ -64,3 +64,15 @@ class OportunidadeUpdate(BaseModel):
     local: str | None = None
     data: datetime | None = None
     vagas_disponiveis: int | None = Field(default=None, ge=1)
+
+
+class InscricaoResponse(BaseModel):
+    """Schema para resposta de dados da inscrição."""
+    id: int
+    oportunidade_id: int
+    voluntario_id: int
+    status: StatusInscricao
+    criado_em: datetime
+
+    class Config:
+        from_attributes = True
