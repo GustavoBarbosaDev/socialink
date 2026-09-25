@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.database import get_session
-from app.models import Oportunidade, PapelUsuario, Usuario
+from app.models import Inscricao, Oportunidade, PapelUsuario, Usuario
 
 settings = get_settings()
 
@@ -98,3 +98,39 @@ def get_oportunidade_dono(
         )
 
     return oportunidade
+
+
+def get_inscricao(
+    inscricao_id: int,
+    session: Session = Depends(get_session),
+) -> Inscricao:
+    """Carrega a inscrição do path ou retorna 404 se não existir."""
+    inscricao = session.get(Inscricao, inscricao_id)
+    if not inscricao:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Inscrição não encontrada",
+        )
+    return inscricao
+
+
+def get_inscricao_dono(
+    usuario: Usuario = Depends(get_current_user),
+    inscricao: Inscricao = Depends(get_inscricao),
+) -> Inscricao:
+    """Carrega a inscrição e garante que o usuário autenticado é a
+    organização dona da oportunidade vinculada.
+
+    Ordem das verificações:
+    1. 401 — token ausente/inválido (get_current_user);
+    2. 404 — inscrição não existe (get_inscricao);
+    3. 403 — inscrição existe, mas a oportunidade não pertence ao usuário.
+    """
+    oportunidade = inscricao.oportunidade
+    if oportunidade.organizacao_id != usuario.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Sem permissão para decidir sobre esta inscrição",
+        )
+
+    return inscricao

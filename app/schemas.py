@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from app.models import PapelUsuario, StatusInscricao
 
 
@@ -76,3 +76,21 @@ class InscricaoResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class InscricaoUpdate(BaseModel):
+    """Schema para a decisão (aprovar/recusar) de uma inscrição.
+
+    A máquina de estados só aceita transições para os estados finais:
+    quem decide não pode voltar uma inscrição para 'pendente'.
+    """
+    status: StatusInscricao
+
+    @field_validator("status")
+    @classmethod
+    def status_deve_ser_final(cls, valor: StatusInscricao) -> StatusInscricao:
+        if valor == StatusInscricao.PENDENTE:
+            raise ValueError(
+                "Status alvo deve ser 'aprovado' ou 'recusado'"
+            )
+        return valor

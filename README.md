@@ -16,11 +16,13 @@ publicadas por ONGs e coletivos comunitários.
 
 ## Status do projeto
 
-**Dia 8 concluído** — inscrição do voluntário implementada, com a regra
-"não duplicar" (409) e listagem das próprias inscrições. Antes disso já
-estavam prontos CRUD de oportunidades, autorização por dono do recurso e
-autenticação JWT. A implementação segue o
-[roadmap](./plan.md#7-roadmap-dia-a-dia).
+**Dia 9 concluído** — a organização dona agora aprova ou recusa inscrições
+(`PATCH /inscricoes/{id}`) e lista as candidaturas da própria vaga
+(`GET /oportunidades/{id}/inscricoes`). A transição de status é uma
+máquina de estados simples: `pendente → aprovado | recusado`, sem voltar
+atrás (409). Antes disso já estavam prontos inscrição do voluntário,
+CRUD de oportunidades, autorização por dono do recurso e autenticação
+JWT. A implementação segue o [roadmap](./plan.md#7-roadmap-dia-a-dia).
 
 ## Como rodar localmente
 
@@ -50,8 +52,9 @@ pytest
 ```
 
 A suite de testes cobre autenticação (registro e login), CRUD de
-oportunidades, autorização por dono e inscrição de voluntários — incluindo
-validações de entrada, regra "não duplicar" e os caminhos de erro (401/403/404/409).
+oportunidades, autorização por dono, inscrição de voluntários e a decisão
+da organização — incluindo validações de entrada, regra "não duplicar",
+máquina de estados de status e os caminhos de erro (401/403/404/409/422).
 
 ## Estrutura do projeto
 
@@ -72,14 +75,14 @@ socialink/
 │   └── routers/
 │       ├── auth.py         # endpoints de autenticação (registrar, login)
 │       ├── oportunidades.py# CRUD de oportunidades (só dono edita/remove)
-│       └── inscricoes.py   # inscrição do voluntário + listagem própria
+│       └── inscricoes.py   # inscrição, listagem e decisão (aprovar/recusar)
 ├── tests/
 │   ├── test_auth.py        # testes de autenticação
 │   ├── test_dependencies.py# testes de get_current_user
 │   ├── test_oportunidades.py # testes do CRUD e autorização
-│   └── test_inscricoes.py  # testes de inscrição e regra "não duplicar"
+│   └── test_inscricoes.py  # testes de inscrição, listagem e decisão
 └── docs/
-    └── relatorio-dia8.md   # relatório técnico do Dia 8
+    └── relatorio-dia9.md   # relatório técnico do Dia 9
 ```
 
 ## Principais endpoints
@@ -94,13 +97,14 @@ socialink/
 | DELETE | `/oportunidades/{id}` | Remove oportunidade (só o dono) | Implementado |
 | POST | `/oportunidades/{id}/inscricoes` | Voluntário se candidata a uma vaga | Implementado |
 | GET | `/voluntario/me/inscricoes` | Lista as inscrições do voluntário | Implementado |
-| PATCH | `/inscricoes/{id}` | Organização aprova ou recusa uma inscrição | Planejado |
+| GET | `/oportunidades/{id}/inscricoes` | Lista as inscrições da vaga (só a dona) | Implementado |
+| PATCH | `/inscricoes/{id}` | Organização aprova ou recusa uma inscrição | Implementado |
 
 Lista completa em [plan.md](./plan.md#5-endpoints-da-api).
 
 ## Próximos passos
 
-Acompanhe o progresso e as ideias de evolução no [plan.md](./plan.md#10-ideias-de-evolução-depois-do-mvp).
+Acompanhe o progresso e as ideias de evolução no [plan.md](./plan.md#9-ideias-de-evolução-depois-do-mvp).
 
 ## Licença
 
