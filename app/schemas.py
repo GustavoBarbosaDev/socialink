@@ -1,5 +1,5 @@
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from app.models import PapelUsuario, StatusInscricao
 
 
@@ -18,8 +18,7 @@ class UsuarioResponse(BaseModel):
     email: str
     papel: PapelUsuario
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class LoginRequest(BaseModel):
@@ -53,8 +52,7 @@ class OportunidadeResponse(BaseModel):
     vagas_disponiveis: int
     organizacao_id: int
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OportunidadeUpdate(BaseModel):
@@ -74,8 +72,7 @@ class InscricaoResponse(BaseModel):
     status: StatusInscricao
     criado_em: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class InscricaoUpdate(BaseModel):
