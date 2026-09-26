@@ -1,83 +1,14 @@
-import pytest
-from datetime import datetime, timezone
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine, select
-from sqlmodel.pool import StaticPool
+from sqlmodel import Session
 
-from app.main import app
-from app.database import get_session
-from app.models import Usuario, Oportunidade
-
-
-@pytest.fixture(name="session")
-def session_fixture():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
-@pytest.fixture(name="client")
-def client_fixture(session: Session):
-    def get_session_override():
-        return session
-
-    app.dependency_overrides[get_session] = get_session_override
-    client = TestClient(app)
-    yield client
-    app.dependency_overrides.clear()
-
-
-def _criar_organizacao(session: Session, email: str = "ong@example.com") -> Usuario:
-    from app.routers.auth import get_password_hash
-
-    usuario = Usuario(
-        nome="ONG Teste",
-        email=email,
-        senha_hash=get_password_hash("123456"),
-        papel="organizacao",
-    )
-    session.add(usuario)
-    session.commit()
-    session.refresh(usuario)
-    return usuario
-
-
-def _criar_voluntario(session: Session, email: str = "voluntario@example.com") -> Usuario:
-    from app.routers.auth import get_password_hash
-
-    usuario = Usuario(
-        nome="Voluntário Teste",
-        email=email,
-        senha_hash=get_password_hash("123456"),
-        papel="voluntario",
-    )
-    session.add(usuario)
-    session.commit()
-    session.refresh(usuario)
-    return usuario
-
-
-def _fazer_login(client: TestClient, email: str, senha: str = "123456") -> str:
-    response = client.post(
-        "/auth/login",
-        json={"email": email, "senha": senha},
-    )
-    return response.json()["access_token"]
-
-
-def _dados_oportunidade() -> dict:
-    return {
-        "titulo": "Campanha de arrecadação",
-        "descricao": "Ajudar na organização de doações para famílias carentes",
-        "local": "Centro Comunitário, São Paulo",
-        "data": datetime(2026, 10, 15, 9, 0, 0, tzinfo=timezone.utc).isoformat(),
-        "vagas_disponiveis": 10,
-    }
+from app.models import Oportunidade
+from tests.helpers import (
+    criar_organizacao,
+    criar_oportunidade,
+    criar_voluntario,
+    dados_oportunidade,
+    fazer_login,
+)
 
 
 # ============================================================
@@ -85,12 +16,12 @@ def _dados_oportunidade() -> dict:
 # ============================================================
 
 def test_criar_oportunidade_sucesso(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
     response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 201
@@ -102,24 +33,24 @@ def test_criar_oportunidade_sucesso(client: TestClient, session: Session):
 
 
 def test_criar_oportunidade_sem_token(client: TestClient):
-    response = client.post("/oportunidades/", json=_dados_oportunidade())
+    response = client.post("/oportunidades/", json=dados_oportunidade())
     assert response.status_code == 401
 
 
 def test_criar_oportunidade_token_invalido(client: TestClient):
     response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": "Bearer token_invalido"},
     )
     assert response.status_code == 401
 
 
 def test_criar_oportunidade_vagas_invalida(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
-    dados = _dados_oportunidade()
+    dados = dados_oportunidade()
     dados["vagas_disponiveis"] = 0  # mínimo é 1
 
     response = client.post(
@@ -131,8 +62,8 @@ def test_criar_oportunidade_vagas_invalida(client: TestClient, session: Session)
 
 
 def test_criar_oportunidade_campos_obrigatorios(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
     response = client.post(
         "/oportunidades/",
@@ -143,12 +74,12 @@ def test_criar_oportunidade_campos_obrigatorios(client: TestClient, session: Ses
 
 
 def test_criar_oportunidade_voluntario_proibido(client: TestClient, session: Session):
-    vol = _criar_voluntario(session)
-    token = _fazer_login(client, vol.email)
+    vol = criar_voluntario(session)
+    token = fazer_login(client, vol.email)
 
     response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
@@ -166,12 +97,12 @@ def test_listar_oportunidades_vazia(client: TestClient):
 
 
 def test_listar_oportunidades_com_dados(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
     client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -187,12 +118,12 @@ def test_listar_oportunidades_com_dados(client: TestClient, session: Session):
 # ============================================================
 
 def test_detalhar_oportunidade_existente(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
     create_response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token}"},
     )
     opp_id = create_response.json()["id"]
@@ -215,12 +146,12 @@ def test_detalhar_oportunidade_inexistente(client: TestClient):
 # ============================================================
 
 def test_atualizar_oportunidade_dono(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
     create_response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token}"},
     )
     opp_id = create_response.json()["id"]
@@ -237,14 +168,14 @@ def test_atualizar_oportunidade_dono(client: TestClient, session: Session):
 
 
 def test_atualizar_oportunidade_nao_dono(client: TestClient, session: Session):
-    org1 = _criar_organizacao(session, email="ong1@example.com")
-    org2 = _criar_organizacao(session, email="ong2@example.com")
-    token1 = _fazer_login(client, org1.email)
-    token2 = _fazer_login(client, org2.email)
+    org1 = criar_organizacao(session, email="ong1@example.com")
+    org2 = criar_organizacao(session, email="ong2@example.com")
+    token1 = fazer_login(client, org1.email)
+    token2 = fazer_login(client, org2.email)
 
     create_response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token1}"},
     )
     opp_id = create_response.json()["id"]
@@ -258,8 +189,8 @@ def test_atualizar_oportunidade_nao_dono(client: TestClient, session: Session):
 
 
 def test_atualizar_oportunidade_inexistente(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
     response = client.patch(
         "/oportunidades/999",
@@ -277,14 +208,14 @@ def test_atualizar_oportunidade_sem_token(client: TestClient):
 def test_atualizar_oportunidade_voluntario_nao_dono(
     client: TestClient, session: Session
 ):
-    org = _criar_organizacao(session)
-    vol = _criar_voluntario(session)
-    token_org = _fazer_login(client, org.email)
-    token_vol = _fazer_login(client, vol.email)
+    org = criar_organizacao(session)
+    vol = criar_voluntario(session)
+    token_org = fazer_login(client, org.email)
+    token_vol = fazer_login(client, vol.email)
 
     create_response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token_org}"},
     )
     opp_id = create_response.json()["id"]
@@ -297,17 +228,36 @@ def test_atualizar_oportunidade_voluntario_nao_dono(
     assert response.status_code == 403
 
 
+def test_atualizar_oportunidade_vagas_invalida(
+    client: TestClient, session: Session
+):
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
+    opp_id = criar_oportunidade(client, token)
+
+    response = client.patch(
+        f"/oportunidades/{opp_id}",
+        json={"vagas_disponiveis": 0},  # mínimo é 1
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 422
+
+    # A vaga permanece com o valor original
+    atual = session.get(Oportunidade, opp_id)
+    assert atual.vagas_disponiveis == 10
+
+
 # ============================================================
 # Testes de Remoção (DELETE /oportunidades/{id})
 # ============================================================
 
 def test_remover_oportunidade_dono(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
     create_response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token}"},
     )
     opp_id = create_response.json()["id"]
@@ -324,14 +274,14 @@ def test_remover_oportunidade_dono(client: TestClient, session: Session):
 
 
 def test_remover_oportunidade_nao_dono(client: TestClient, session: Session):
-    org1 = _criar_organizacao(session, email="ong1@example.com")
-    org2 = _criar_organizacao(session, email="ong2@example.com")
-    token1 = _fazer_login(client, org1.email)
-    token2 = _fazer_login(client, org2.email)
+    org1 = criar_organizacao(session, email="ong1@example.com")
+    org2 = criar_organizacao(session, email="ong2@example.com")
+    token1 = fazer_login(client, org1.email)
+    token2 = fazer_login(client, org2.email)
 
     create_response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token1}"},
     )
     opp_id = create_response.json()["id"]
@@ -344,8 +294,8 @@ def test_remover_oportunidade_nao_dono(client: TestClient, session: Session):
 
 
 def test_remover_oportunidade_inexistente(client: TestClient, session: Session):
-    org = _criar_organizacao(session)
-    token = _fazer_login(client, org.email)
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
 
     response = client.delete(
         "/oportunidades/999",
@@ -362,14 +312,14 @@ def test_remover_oportunidade_sem_token(client: TestClient):
 def test_remover_oportunidade_voluntario_nao_dono(
     client: TestClient, session: Session
 ):
-    org = _criar_organizacao(session)
-    vol = _criar_voluntario(session)
-    token_org = _fazer_login(client, org.email)
-    token_vol = _fazer_login(client, vol.email)
+    org = criar_organizacao(session)
+    vol = criar_voluntario(session)
+    token_org = fazer_login(client, org.email)
+    token_vol = fazer_login(client, vol.email)
 
     create_response = client.post(
         "/oportunidades/",
-        json=_dados_oportunidade(),
+        json=dados_oportunidade(),
         headers={"Authorization": f"Bearer {token_org}"},
     )
     opp_id = create_response.json()["id"]

@@ -1,36 +1,7 @@
-import pytest
 from fastapi.testclient import TestClient
-from sqlmodel import Session, SQLModel, create_engine, select
-from sqlmodel.pool import StaticPool
+from sqlmodel import Session, select
 
-from app.main import app
-from app.database import get_session
 from app.models import Usuario
-
-
-@pytest.fixture(name="session")
-def session_fixture():
-    """Cria uma sessão de teste isolada para cada teste."""
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
-@pytest.fixture(name="client")
-def client_fixture(session: Session):
-    """Cria um cliente de teste com sessão de banco isolada."""
-    def get_session_override():
-        return session
-
-    app.dependency_overrides[get_session] = get_session_override
-    client = TestClient(app)
-    yield client
-    app.dependency_overrides.clear()
 
 
 def test_registrar_usuario_voluntario(client: TestClient):
@@ -263,3 +234,79 @@ def test_login_token_valido(client: TestClient):
     assert payload["sub"] == "joao@example.com"
     assert payload["papel"] == "voluntario"
     assert "exp" in payload
+
+
+# ============================================================
+# Testes de validação de entrada e expiração de token
+# ============================================================
+
+def test_registrar_papel_invalido(client: TestClient):
+    """Testa que papel fora do enum (organizacao|voluntario) retorna 422."""
+    response = client.post(
+        "/auth/registrar",
+        json={
+            "nome": "Administrador",
+            "email": "admin@example.com",
+            "senha": "123456",
+            "papel": "superadmin"
+        }
+    )
+    assert response.status_code == 422
+
+
+def test_login_campos_obrigatorios(client: TestClient):
+    """Testa que o login valida o corpo da requisição (422)."""
+    response = client.post(
+        "/auth/login",
+        json={"email": "joao@example.com"}  # faltando a senha
+    )
+    assert response.status_code == 422
+
+
+def test_login_nao_expoe_senha(client: TestClient):
+    """Testa que a senha em texto puro nunca aparece numa resposta."""
+    client.post(
+        "/auth/registrar",
+        json={
+            "nome": "João Silva",
+            "email": "joao@example.com",
+            "senha": "123456",
+            "papel": "voluntario"
+        }
+    )
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "joao@example.com", "senha": "123456"}
+    )
+    assert response.status_code == 200
+    assert "123456" not in response.text
+
+
+def test_token_expirado_em_endpoint(client: TestClient):
+    """Testa que um endpoint protegido recusa token expirado (401)."""
+    from jose import jwt
+    from app.config import get_settings
+
+    settings = get_settings()
+
+    client.post(
+        "/auth/registrar",
+        json={
+            "nome": "João Silva",
+            "email": "joao@example.com",
+            "senha": "123456",
+            "papel": "voluntario"
+        }
+    )
+
+    # Token assinado corretamente, mas com expiração em 1970
+    payload = {"sub": "joao@example.com", "papel": "voluntario", "exp": 0}
+    token = jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+
+    response = client.get(
+        "/voluntario/me/inscricoes",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Credenciais inválidas"

@@ -2,8 +2,7 @@ import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 from jose import jwt
-from sqlmodel import Session, SQLModel, create_engine
-from sqlmodel.pool import StaticPool
+from sqlmodel import Session
 
 from app.config import get_settings
 from app.database import get_session
@@ -14,20 +13,12 @@ from app.routers.auth import get_password_hash
 settings = get_settings()
 
 
-@pytest.fixture(name="session")
-def session_fixture():
-    engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    SQLModel.metadata.create_all(engine)
-    with Session(engine) as session:
-        yield session
-
-
 @pytest.fixture(name="client")
 def client_fixture(session: Session):
+    """App mínima só com /me, para isolar a dependência get_current_user.
+
+    A fixture `session` (banco em memória) vem do conftest.py.
+    """
     app = FastAPI()
 
     @app.get("/me")
@@ -103,3 +94,25 @@ def test_get_current_user_token_expirado(client: TestClient, session: Session):
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Credenciais inválidas"
+
+
+def test_get_current_user_token_sem_sub(client: TestClient):
+    """Token assinado mas sem o claim 'sub' (email) também é recusado."""
+    token = jwt.encode(
+        {"papel": "voluntario"}, settings.SECRET_KEY, algorithm=settings.JWT_ALGORITHM
+    )
+
+    response = client.get("/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Credenciais inválidas"
+
+
+def test_get_session_devolve_sessao():
+    """A dependência get_session entrega uma sessão SQLModel utilizável."""
+    from app.database import get_session
+
+    gerador = get_session()
+    sessao = next(gerador)
+    assert isinstance(sessao, Session)
+    gerador.close()
