@@ -1,11 +1,17 @@
 from datetime import datetime, timedelta, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
-from jose import JWTError, jwt
+from fastapi import APIRouter, Depends, status
+from jose import jwt
 from sqlmodel import Session, select
 from passlib.context import CryptContext
 
 from app.config import get_settings
 from app.database import get_session
+from app.errors import (
+    EMAIL_JA_CADASTRADO,
+    EMAIL_OU_SENHA_INCORRETOS,
+    NaoAutenticado,
+    RequisicaoInvalida,
+)
 from app.models import Usuario
 from app.schemas import UsuarioCreate, UsuarioResponse, LoginRequest, TokenResponse
 
@@ -43,10 +49,7 @@ def registrar(usuario: UsuarioCreate, session: Session = Depends(get_session)):
     result = session.exec(stmt).first()
 
     if result:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email já cadastrado"
-        )
+        raise RequisicaoInvalida(EMAIL_JA_CADASTRADO)
 
     # Criar hash da senha
     senha_hash = get_password_hash(usuario.senha)
@@ -75,11 +78,7 @@ def login(dados: LoginRequest, session: Session = Depends(get_session)):
 
     # Verificar se o usuário existe e se a senha está correta
     if not usuario or not verify_password(dados.senha, usuario.senha_hash):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Email ou senha incorretos",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise NaoAutenticado(EMAIL_OU_SENHA_INCORRETOS)
 
     # Criar token JWT
     access_token = create_access_token(data={"sub": usuario.email, "papel": usuario.papel})

@@ -1,10 +1,22 @@
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from sqlmodel import Session, select
 
 from app.config import get_settings
 from app.database import get_session
+from app.errors import (
+    APENAS_ORGANIZACOES,
+    APENAS_VOLUNTARIOS,
+    CREDENCIAIS_INVALIDAS,
+    INSCRICAO_NAO_ENCONTRADA,
+    NaoAutenticado,
+    NaoEncontrado,
+    OPORTUNIDADE_NAO_ENCONTRADA,
+    Proibido,
+    SEM_PERMISSAO_INSCRICAO,
+    SEM_PERMISSAO_OPORTUNIDADE,
+)
 from app.models import Inscricao, Oportunidade, PapelUsuario, Usuario
 
 settings = get_settings()
@@ -17,11 +29,7 @@ def get_current_user(
     session: Session = Depends(get_session),
 ) -> Usuario:
     """Decodifica o token JWT e retorna o usuário autenticado."""
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Credenciais inválidas",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    credentials_exception = NaoAutenticado(CREDENCIAIS_INVALIDAS)
 
     try:
         payload = jwt.decode(
@@ -47,10 +55,7 @@ def get_current_organizacao(
 ) -> Usuario:
     """Garante que o usuário autenticado tenha papel 'organizacao'."""
     if usuario.papel != PapelUsuario.ORGANIZACAO:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Apenas organizações podem executar esta ação",
-        )
+        raise Proibido(APENAS_ORGANIZACOES)
     return usuario
 
 
@@ -59,10 +64,7 @@ def get_current_voluntario(
 ) -> Usuario:
     """Garante que o usuário autenticado tenha papel 'voluntario'."""
     if usuario.papel != PapelUsuario.VOLUNTARIO:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Apenas voluntários podem executar esta ação",
-        )
+        raise Proibido(APENAS_VOLUNTARIOS)
     return usuario
 
 
@@ -73,10 +75,7 @@ def get_oportunidade(
     """Carrega a oportunidade do path ou retorna 404 se não existir."""
     oportunidade = session.get(Oportunidade, oportunidade_id)
     if not oportunidade:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Oportunidade não encontrada",
-        )
+        raise NaoEncontrado(OPORTUNIDADE_NAO_ENCONTRADA)
     return oportunidade
 
 
@@ -92,10 +91,7 @@ def get_oportunidade_dono(
     3. 403 — oportunidade existe, mas não pertence ao usuário.
     """
     if oportunidade.organizacao_id != usuario.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para alterar esta oportunidade",
-        )
+        raise Proibido(SEM_PERMISSAO_OPORTUNIDADE)
 
     return oportunidade
 
@@ -107,10 +103,7 @@ def get_inscricao(
     """Carrega a inscrição do path ou retorna 404 se não existir."""
     inscricao = session.get(Inscricao, inscricao_id)
     if not inscricao:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Inscrição não encontrada",
-        )
+        raise NaoEncontrado(INSCRICAO_NAO_ENCONTRADA)
     return inscricao
 
 
@@ -128,9 +121,6 @@ def get_inscricao_dono(
     """
     oportunidade = inscricao.oportunidade
     if oportunidade.organizacao_id != usuario.id:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Sem permissão para decidir sobre esta inscrição",
-        )
+        raise Proibido(SEM_PERMISSAO_INSCRICAO)
 
     return inscricao

@@ -16,15 +16,16 @@ publicadas por ONGs e coletivos comunitários.
 
 ## Status do projeto
 
-**Dia 10 concluído** — a suíte de testes foi consolidada: fixtures e
-builders que se repetiam em quatro arquivos agora vivem em
-`tests/conftest.py` e `tests/helpers.py`, foi adicionado `pytest.ini`
-(caminhos + relatório de cobertura) e **74 testes cobrem 100% das linhas
-de `app/`**. Também entraram os testes que faltavam: validação de papel
-inválido, corpo incompleto no login, senha nunca vazando em resposta,
-token expirado em endpoint real, `422` em `PATCH` e os endpoints
-básicos (`/`, `/health`, lifespan). A implementação segue o
-[roadmap](./plan.md#7-roadmap-dia-a-dia).
+**Dia 11 concluído** — erros padronizados com exception handlers. Toda a
+API responde `{"detail": ...}` (e `{"detail": [{"campo", "mensagem"}]}`
+no 422), inclusive erros levantados pelo próprio framework, como rota
+inexistente. As mensagens passaram a viver em `app/errors.py`, junto com
+exceções de domínio (`NaoEncontrado`, `Proibido`, `Conflito`...) que
+amarram o status HTTP — os testes importam as mesmas constantes, então não
+existem mais strings de erro repetidas. **89 testes cobrem 100% das linhas
+de `app/`**, incluindo os 15 novos de `tests/test_erros.py` (400 a 500,
+`WWW-Authenticate`, 422 sem ecoar input e falha interna). A implementação
+segue o [roadmap](./plan.md#7-roadmap-dia-a-dia).
 
 ## Como rodar localmente
 
@@ -57,11 +58,12 @@ O `pytest.ini` na raiz já aponta para `tests/`, adiciona o projeto ao
 `pythonpath` e habilita o `pytest-cov` — todo `pytest` imprime, ao final,
 a cobertura de `app/`.
 
-**74 testes, 100% de cobertura das linhas.** A suite cobre autenticação
+**89 testes, 100% de cobertura das linhas.** A suite cobre autenticação
 (registro e login), CRUD de oportunidades, autorização por dono,
-inscrição de voluntários e a decisão da organização — incluindo
-validações de entrada, regra "não duplicar", máquina de estados de
-status, lifespan da aplicação e os caminhos de erro (400/401/403/404/409/422).
+inscrição de voluntários, a decisão da organização, o contrato de erro
+(400/401/403/404/405/409/422/500) — incluindo validações de entrada,
+regra "não duplicar", máquina de estados de status, lifespan da
+aplicação e o corpo dos erros em si.
 
 ```bash
 pytest tests/test_auth.py -q      # roda um arquivo
@@ -84,6 +86,7 @@ socialink/
 │   ├── config.py         # configurações centralizadas
 │   ├── database.py       # engine e sessão do banco
 │   ├── dependencies.py   # get_current_user e autorização por papel/dono
+│   ├── errors.py         # mensagens, exceções de domínio e exception handlers
 │   ├── main.py           # ponto de entrada FastAPI (lifespan)
 │   ├── models.py         # models SQLModel (Usuario, Oportunidade, Inscricao)
 │   ├── schemas.py        # schemas Pydantic para request/response
@@ -98,10 +101,11 @@ socialink/
 │   ├── test_app.py       # raiz, health e lifespan
 │   ├── test_auth.py      # testes de autenticação
 │   ├── test_dependencies.py # testes de get_current_user e get_session
+│   ├── test_erros.py     # contrato de erro (handlers, 422, 500)
 │   ├── test_oportunidades.py # testes do CRUD e autorização
 │   └── test_inscricoes.py  # testes de inscrição, listagem e decisão
 └── docs/
-    └── relatorio-dia10.md   # relatório técnico do Dia 10
+    └── relatorio-dia11.md   # relatório técnico do Dia 11
 ```
 
 ## Principais endpoints

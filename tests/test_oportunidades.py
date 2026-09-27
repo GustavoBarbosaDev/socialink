@@ -1,6 +1,10 @@
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
+from app.errors import (
+    APENAS_ORGANIZACOES,
+    OPORTUNIDADE_NAO_ENCONTRADA,
+)
 from app.models import Oportunidade
 from tests.helpers import (
     criar_organizacao,
@@ -83,7 +87,7 @@ def test_criar_oportunidade_voluntario_proibido(client: TestClient, session: Ses
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == "Apenas organizações podem executar esta ação"
+    assert response.json()["detail"] == APENAS_ORGANIZACOES
 
 
 # ============================================================
@@ -138,7 +142,7 @@ def test_detalhar_oportunidade_existente(client: TestClient, session: Session):
 def test_detalhar_oportunidade_inexistente(client: TestClient):
     response = client.get("/oportunidades/999")
     assert response.status_code == 404
-    assert response.json()["detail"] == "Oportunidade não encontrada"
+    assert response.json()["detail"] == OPORTUNIDADE_NAO_ENCONTRADA
 
 
 # ============================================================

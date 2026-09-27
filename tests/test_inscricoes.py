@@ -1,6 +1,15 @@
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app.errors import (
+    APENAS_VOLUNTARIOS,
+    INSCRICAO_DUPLICADA,
+    INSCRICAO_JA_DECIDIDA,
+    INSCRICAO_NAO_ENCONTRADA,
+    OPORTUNIDADE_NAO_ENCONTRADA,
+    SEM_PERMISSAO_INSCRICAO,
+    SEM_PERMISSAO_OPORTUNIDADE,
+)
 from app.models import Inscricao
 from tests.helpers import (
     criar_organizacao,
@@ -47,7 +56,7 @@ def test_inscrever_duplicado_proibido(client: TestClient, session: Session):
 
     segunda = client.post(f"/oportunidades/{opp_id}/inscricoes", headers=headers)
     assert segunda.status_code == 409
-    assert segunda.json()["detail"] == "Voluntário já inscrito nesta oportunidade"
+    assert segunda.json()["detail"] == INSCRICAO_DUPLICADA
 
     # Apenas uma inscrição persistida
     inscricoes = session.exec(select(Inscricao)).all()
@@ -85,7 +94,7 @@ def test_inscrever_organizacao_proibido(client: TestClient, session: Session):
         headers={"Authorization": f"Bearer {token_org}"},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == "Apenas voluntários podem executar esta ação"
+    assert response.json()["detail"] == APENAS_VOLUNTARIOS
 
 
 def test_inscrever_oportunidade_inexistente(client: TestClient, session: Session):
@@ -97,7 +106,7 @@ def test_inscrever_oportunidade_inexistente(client: TestClient, session: Session
         headers={"Authorization": f"Bearer {token_vol}"},
     )
     assert response.status_code == 404
-    assert response.json()["detail"] == "Oportunidade não encontrada"
+    assert response.json()["detail"] == OPORTUNIDADE_NAO_ENCONTRADA
 
 
 def test_inscrever_outro_voluntario_mesma_oportunidade(
@@ -211,7 +220,7 @@ def test_listar_minhas_inscricoes_organizacao_proibido(
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == "Apenas voluntários podem executar esta ação"
+    assert response.json()["detail"] == APENAS_VOLUNTARIOS
 
 
 # ============================================================
@@ -268,9 +277,7 @@ def test_listar_inscricoes_da_oportunidade_nao_dono(
         headers={"Authorization": f"Bearer {token_org2}"},
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == (
-        "Sem permissão para alterar esta oportunidade"
-    )
+    assert response.json()["detail"] == SEM_PERMISSAO_OPORTUNIDADE
 
 
 def test_listar_inscricoes_da_oportunidade_voluntario_proibido(
@@ -300,7 +307,7 @@ def test_listar_inscricoes_oportunidade_inexistente(
         headers={"Authorization": f"Bearer {token_org}"},
     )
     assert response.status_code == 404
-    assert response.json()["detail"] == "Oportunidade não encontrada"
+    assert response.json()["detail"] == OPORTUNIDADE_NAO_ENCONTRADA
 
 
 def test_listar_inscricoes_sem_token(client: TestClient):
@@ -400,7 +407,7 @@ def test_decidir_inscricao_inexistente(client: TestClient, session: Session):
 
     response = _decidir(client, 999, cenario["token_org"], "aprovado")
     assert response.status_code == 404
-    assert response.json()["detail"] == "Inscrição não encontrada"
+    assert response.json()["detail"] == INSCRICAO_NAO_ENCONTRADA
 
 
 def test_decidir_inscricao_de_outra_organizacao(
@@ -414,9 +421,7 @@ def test_decidir_inscricao_de_outra_organizacao(
         client, cenario["inscricao_id"], token_outra, "aprovado"
     )
     assert response.status_code == 403
-    assert response.json()["detail"] == (
-        "Sem permissão para decidir sobre esta inscrição"
-    )
+    assert response.json()["detail"] == SEM_PERMISSAO_INSCRICAO
 
     # A inscrição continua intacta no banco
     inscricao = session.get(Inscricao, cenario["inscricao_id"])
@@ -432,7 +437,7 @@ def test_decidir_inscricao_ja_decidida(client: TestClient, session: Session):
         client, cenario["inscricao_id"], cenario["token_org"], "aprovado"
     )
     assert repetir.status_code == 409
-    assert repetir.json()["detail"] == "Inscrição já foi decidida"
+    assert repetir.json()["detail"] == INSCRICAO_JA_DECIDIDA
 
     # Trocar para recusado também é bloqueado (sem voltar atrás)
     trocar = _decidir(

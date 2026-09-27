@@ -7,6 +7,7 @@ from sqlmodel import Session
 from app.config import get_settings
 from app.database import get_session
 from app.dependencies import get_current_user
+from app.errors import CREDENCIAIS_INVALIDAS
 from app.models import Usuario
 from app.routers.auth import get_password_hash
 
@@ -73,7 +74,7 @@ def test_get_current_user_token_ausente(client: TestClient):
 def test_get_current_user_token_invalido(client: TestClient):
     response = client.get("/me", headers={"Authorization": "Bearer token_invalido"})
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciais inválidas"
+    assert response.json()["detail"] == CREDENCIAIS_INVALIDAS
 
 
 def test_get_current_user_email_nao_encontrado(client: TestClient, session: Session):
@@ -82,7 +83,7 @@ def test_get_current_user_email_nao_encontrado(client: TestClient, session: Sess
     response = client.get("/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciais inválidas"
+    assert response.json()["detail"] == CREDENCIAIS_INVALIDAS
 
 
 def test_get_current_user_token_expirado(client: TestClient, session: Session):
@@ -93,7 +94,7 @@ def test_get_current_user_token_expirado(client: TestClient, session: Session):
     response = client.get("/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciais inválidas"
+    assert response.json()["detail"] == CREDENCIAIS_INVALIDAS
 
 
 def test_get_current_user_token_sem_sub(client: TestClient):
@@ -105,7 +106,7 @@ def test_get_current_user_token_sem_sub(client: TestClient):
     response = client.get("/me", headers={"Authorization": f"Bearer {token}"})
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciais inválidas"
+    assert response.json()["detail"] == CREDENCIAIS_INVALIDAS
 
 
 def test_get_session_devolve_sessao():

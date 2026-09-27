@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlmodel import Session, select
 
 from app.database import get_session
@@ -7,6 +7,11 @@ from app.dependencies import (
     get_inscricao_dono,
     get_oportunidade,
     get_oportunidade_dono,
+)
+from app.errors import (
+    Conflito,
+    INSCRICAO_DUPLICADA,
+    INSCRICAO_JA_DECIDIDA,
 )
 from app.models import Inscricao, Oportunidade, StatusInscricao, Usuario
 from app.schemas import InscricaoResponse, InscricaoUpdate
@@ -35,10 +40,7 @@ def inscrever_voluntario(
         Inscricao.voluntario_id == usuario.id,
     )
     if session.exec(stmt).first():
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Voluntário já inscrito nesta oportunidade",
-        )
+        raise Conflito(INSCRICAO_DUPLICADA)
 
     inscricao = Inscricao(oportunidade_id=oportunidade_id, voluntario_id=usuario.id)
     session.add(inscricao)
@@ -87,10 +89,7 @@ def decidir_inscricao(
     Uma inscrição já decidida não muda mais (409).
     """
     if inscricao.status != StatusInscricao.PENDENTE:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Inscrição já foi decidida",
-        )
+        raise Conflito(INSCRICAO_JA_DECIDIDA)
 
     inscricao.status = dados.status
     session.add(inscricao)

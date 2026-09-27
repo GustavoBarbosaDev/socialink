@@ -1,8 +1,15 @@
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.config import get_settings
 from app.database import criar_tabelas
+from app.errors import (
+    tratar_erro_interno,
+    tratar_erro_validacao,
+    tratar_http_exception,
+)
 from app.routers import auth, inscricoes, oportunidades
 
 
@@ -31,6 +38,11 @@ app = FastAPI(
 app.include_router(auth.router)
 app.include_router(oportunidades.router)
 app.include_router(inscricoes.router)
+
+# Exception handlers padronizados (substituem os defaults do FastAPI)
+app.add_exception_handler(StarletteHTTPException, tratar_http_exception)
+app.add_exception_handler(RequestValidationError, tratar_erro_validacao)
+app.add_exception_handler(Exception, tratar_erro_interno)
 
 
 @app.get("/")

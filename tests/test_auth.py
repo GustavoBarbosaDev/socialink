@@ -1,6 +1,11 @@
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+from app.errors import (
+    CREDENCIAIS_INVALIDAS,
+    EMAIL_JA_CADASTRADO,
+    EMAIL_OU_SENHA_INCORRETOS,
+)
 from app.models import Usuario
 
 
@@ -65,7 +70,7 @@ def test_registrar_email_duplicado(client: TestClient):
         }
     )
     assert response.status_code == 400
-    assert response.json()["detail"] == "Email já cadastrado"
+    assert response.json()["detail"] == EMAIL_JA_CADASTRADO
 
 
 def test_registrar_email_invalido(client: TestClient):
@@ -173,7 +178,7 @@ def test_login_email_inexistente(client: TestClient):
         }
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Email ou senha incorretos"
+    assert response.json()["detail"] == EMAIL_OU_SENHA_INCORRETOS
 
 
 def test_login_senha_incorreta(client: TestClient):
@@ -198,7 +203,7 @@ def test_login_senha_incorreta(client: TestClient):
         }
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Email ou senha incorretos"
+    assert response.json()["detail"] == EMAIL_OU_SENHA_INCORRETOS
 
 
 def test_login_token_valido(client: TestClient):
@@ -309,4 +314,4 @@ def test_token_expirado_em_endpoint(client: TestClient):
         headers={"Authorization": f"Bearer {token}"},
     )
     assert response.status_code == 401
-    assert response.json()["detail"] == "Credenciais inválidas"
+    assert response.json()["detail"] == CREDENCIAIS_INVALIDAS

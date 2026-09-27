@@ -1,8 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlmodel import Session, select
 
 from app.database import get_session
 from app.dependencies import get_current_organizacao, get_oportunidade_dono
+from app.errors import NaoEncontrado, OPORTUNIDADE_NAO_ENCONTRADA
 from app.models import Oportunidade, Usuario
 from app.schemas import (
     OportunidadeCreate,
@@ -54,10 +55,7 @@ def detalhar_oportunidade(
     """Retorna os detalhes de uma oportunidade específica."""
     oportunidade = session.get(Oportunidade, oportunidade_id)
     if not oportunidade:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Oportunidade não encontrada",
-        )
+        raise NaoEncontrado(OPORTUNIDADE_NAO_ENCONTRADA)
     return oportunidade
 
 
