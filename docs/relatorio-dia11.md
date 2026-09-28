@@ -273,8 +273,8 @@ TOTAL                            369      0   100%
 
 ## 8. Próximos passos (Dia 12)
 
-- [ ] Revisar README e conferir `.env` / `.env.example` (boas práticas de entrega)
-- [ ] Revisar `docs/relatorio-dia3.md` (relatório faltando da série — pendência do Dia 10)
+- [x] Revisar README e conferir `.env` / `.env.example` (boas práticas de entrega) — Dia 12
+- [x] Revisar `docs/relatorio-dia3.md` (relatório faltando da série — pendência do Dia 10) — recuperado no Dia 12
 - [ ] Preparar o deploy (Dia 13–14: Render ou Railway)
 
 ---

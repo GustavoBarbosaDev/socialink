@@ -5,6 +5,14 @@ e a aplicação real com a dependência `get_session` substituída por essa
 sessão — assim nenhum teste enxerga dados de outro.
 """
 
+import os
+
+# Precisa rodar antes de importar app.*: Settings valida SECRET_KEY na criação
+# e os módulos de app chamam get_settings() no import (cachê lru_cache).
+# Assim a suíte é hermética — roda em clone fresco, sem .env, e nunca
+# depende da chave secreta real de quem está desenvolvendo.
+os.environ.setdefault("SECRET_KEY", "chave_de_teste_so_para_suíte_nao_usar_em_producao")
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, SQLModel, create_engine
