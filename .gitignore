@@ -38,3 +38,8 @@ build/
 *.log
 
 
+# Vercel (projeto vinculado + arquivos de ambiente gerados localmente)
+.vercel
+.env*
+# ...exceto o exemplo, que é documentação e versiona
+!.env.example

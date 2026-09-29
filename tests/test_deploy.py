@@ -55,6 +55,26 @@ def test_email_str_tem_dependencia_declarada():
     )
 
 
+def test_vercelignore_bloqueia_segredos_no_upload_da_cli():
+    """.vercelignore impede que `vercel deploy` suba .env e ambientes virtuais.
+
+    O deploy via Git só envia o commit, mas o deploy da máquina local
+    (CLI) envia os arquivos do diretório — sem esta lista, o `.env` com a
+    chave de dev entrava no bundle e o guard de SECRET_KEY passava em
+    preview com segredo de desenvolvimento (aconteceu no Dia 14).
+    """
+    padroes = {
+        linha.strip()
+        for linha in (RAIZ / ".vercelignore").read_text(encoding="utf-8").splitlines()
+        if linha.strip() and not linha.lstrip().startswith("#")
+    }
+
+    assert ".env" in padroes
+    assert ".env.*" in padroes
+    assert {".venv", "venv"} <= padroes
+    assert "*.db" in padroes
+
+
 def test_vercel_json_e_valido():
     """vercel.json é JSON válido e aponta para o schema oficial."""
     configuracao = json.loads((RAIZ / "vercel.json").read_text(encoding="utf-8"))

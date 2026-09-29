@@ -16,19 +16,25 @@ publicadas por ONGs e coletivos comunitários.
 
 ## Status do projeto
 
-**Dia 13 concluído; Dia 14 em andamento** — preparação do deploy no
-**Vercel** (Dia 13) e primeira publicação (Dia 14). O `vercel.json`
-aponta o entrypoint que o provedor procura (`app/main.py`), o
-`requirements.txt` ganhou o driver do PostgreSQL **com versão pinada**, e
-`app/database.py` normaliza o alias antigo `postgres://` (que Neon/Vercel
-ainda emitem e o SQLAlchemy 2.0 rejeita) além de ligar `pool_pre_ping`
-para conexões stales em serverless. O primeiro deploy ainda expôs uma
-dependência **implícita**: o `email-validator`, exigido pelo `EmailStr`
-de `schemas.py`, nunca havia entrado no `requirements.txt` — só existia
-na máquina de dev, e a função morria no Vercel com
-`FUNCTION_INVOCATION_FAILED`. **109 testes cobrem 100% das linhas
-de `app/`** — os 11 do contrato de deploy fiscalizam driver, entrypoint
-e essa dependência oculta.
+**Dia 14 concluído — roadmap completo.** A API está publicada em
+**https://socialink-gilt.vercel.app** com PostgreSQL (Neon) e variáveis
+de ambiente do provedor. O smoke test passou de ponta a ponta: `/health`,
+registro, login e **persistência entre deploys** — os dados sobrevivem a
+um novo deploy, provando que moram no banco e não no disco efêmero da
+função. O guard de `SECRET_KEY` foi validado ao vivo: um deploy sem a
+variável derruba a função com a mensagem exata de `app/config.py`
+(log capturado no relatório do Dia 14).
+
+A preparação (Dia 13) deixou `vercel.json` apontando o entrypoint
+(`app/main.py`), `psycopg2-binary` **pinado** no `requirements.txt`, e
+`app/database.py` normalizando o alias antigo `postgres://` além de
+ligar `pool_pre_ping`. O Dia 14 expôs e corrigiu dois bloqueadores
+empilhados: a dependência **implícita** `email-validator` (exigida pelo
+`EmailStr`, nunca declarada — instalada só na máquina de dev) e o
+`.vercelignore`, que fecha o upload do `.env` local em deploys via CLI.
+**110 testes cobrem 100% das linhas de `app/`** — os 12 do contrato de
+deploy fiscalizam driver, entrypoint, dependências ocultas e segredos
+no upload.
 
 A API responde erros padronizados desde o Dia 11: `{"detail": ...}` (e
 `{"detail": [{"campo", "mensagem"}]}` no 422), inclusive os levantados
@@ -87,15 +93,16 @@ O `pytest.ini` na raiz já aponta para `tests/`, adiciona o projeto ao
 `pythonpath` e habilita o `pytest-cov` — todo `pytest` imprime, ao final,
 a cobertura de `app/`.
 
-**109 testes, 100% de cobertura das linhas.** A suite cobre autenticação
+**110 testes, 100% de cobertura das linhas.** A suite cobre autenticação
 (registro e login), CRUD de oportunidades, autorização por dono,
 inscrição de voluntários, a decisão da organização, o contrato de erro
 (400/401/403/404/405/409/422/500), a configuração de entrega
 (`.env.example` × `app/config.py`, defaults seguros e o guard de
 `SECRET_KEY`), o contrato de deploy (`vercel.json`, entrypoint, driver
-do PostgreSQL, `email-validator` e normalização da URL) — incluindo
-validações de entrada, regra "não duplicar", máquina de estados de
-status, lifespan da aplicação e o corpo dos erros em si.
+do PostgreSQL, `email-validator`, normalização da URL e
+`.vercelignore`) — incluindo validações de entrada, regra "não
+duplicar", máquina de estados de status, lifespan da aplicação e o
+corpo dos erros em si.
 
 ```bash
 pytest tests/test_auth.py -q      # roda um arquivo
@@ -112,10 +119,18 @@ start command, `Procfile` nem build script.
 
 1. **Banco de dados:** o filesystem da função é efêmero, então o SQLite
    não serve para produção. Crie um PostgreSQL gratuito — o caminho mais
-   simples é o **Neon** pelo Marketplace do Vercel (*Storage → Marketplace*)
-   ou direto em [neon.tech](https://neon.tech).
-2. **Variáveis de ambiente** em *Project → Settings → Environment
-   Variables*, **antes** do primeiro deploy:
+   rápido é a própria CLI, de dentro do projeto:
+
+   ```bash
+   npx vercel integration add neon    # cria o banco e injeta DATABASE_URL
+   ```
+
+   A integração injeta `DATABASE_URL` nos três ambientes (Production,
+   Preview e Development). Alternativa pelo painel: *Storage →
+   Marketplace → Neon*.
+2. **Variáveis de ambiente** em *Settings → Environment Variables*
+   (ou `npx vercel env add SECRET_KEY production`), **antes** do
+   primeiro deploy:
 
    | Variável | Valor |
    |---|---|
@@ -142,7 +157,12 @@ start command, `Procfile` nem build script.
 
 > Sem `SECRET_KEY`, a função **falha ao iniciar** com a mensagem do guard
 > de `app/config.py` — é o comportamento intencional do Dia 12, não um
-> bug do deploy.
+> bug do deploy (validado ao vivo no Dia 14, log no relatório).
+
+> **Deploys via CLI** (`npx vercel deploy`) enviam os arquivos da
+> máquina, não o commit — por isso existe o `.vercelignore`, que
+> bloqueia `.env*`, venvs e `*.db` no upload. Sem ele, o `.env` local
+> subia junto e o guard passava com a chave de dev.
 
 ## Estrutura do projeto
 
@@ -151,6 +171,7 @@ socialink/
 ├── .gitignore
 ├── .env.example          # variáveis de ambiente (copie para .env)
 ├── .python-version       # versão de Python do deploy (3.12)
+├── .vercelignore         # segredos/lixo fora do upload da CLI
 ├── README.md
 ├── plan.md               # problema, modelagem e roadmap completo
 ├── pytest.ini            # configuração do pytest (testpaths + cobertura)
@@ -182,7 +203,7 @@ socialink/
 │   ├── test_oportunidades.py # testes do CRUD e autorização
 │   └── test_inscricoes.py  # testes de inscrição, listagem e decisão
 └── docs/
-    └── relatorio-dia1.md … relatorio-dia13.md  # 13 relatórios técnicos
+    └── relatorio-dia1.md … relatorio-dia14.md  # 14 relatórios técnicos
 ```
 
 ## Principais endpoints
@@ -204,11 +225,11 @@ Lista completa em [plan.md](./plan.md#5-endpoints-da-api).
 
 ## Próximos passos
 
-- **Dia 14 — validação do deploy:** rodar o smoke test da URL pública,
-  confirmar que os dados sobrevivem a um novo deploy (prova de que o
-  PostgreSQL está ativo) e verificar o guard de `SECRET_KEY` num deploy
-  sem a variável.
-- Evoluções depois do MVP: [plan.md §9](./plan.md#9-ideias-de-evolução-depois-do-mvp).
+O roadmap do `plan.md` está concluído (Dia 1 a 14). As evoluções
+sugeridas para depois do MVP estão em
+[plan.md §9](./plan.md#9-ideias-de-evolução-depois-do-mvp) — paginação
+e busca, e-mail de confirmação, Docker, rate limiting e migrações
+versionadas com Alembic.
 
 ## Licença
 

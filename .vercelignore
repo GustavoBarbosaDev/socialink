@@ -1,0 +1,13 @@
+# Exclusões para deploys via CLI (vercel deploy)
+# O deploy via Git já só sobe o commit; aqui evitamos que segredos e
+# lixo local entrem no bundle quando alguém dá deploy da máquina.
+.env
+.env.*
+.venv
+venv
+*.db
+*.sqlite3
+.pytest_cache
+.coverage
+__pycache__
+.vercel
