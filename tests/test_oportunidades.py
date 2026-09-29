@@ -12,6 +12,8 @@ from tests.helpers import (
     criar_voluntario,
     dados_oportunidade,
     fazer_login,
+    inscrever,
+    listar_inscricoes,
 )
 
 
@@ -275,6 +277,33 @@ def test_remover_oportunidade_dono(client: TestClient, session: Session):
     # Verificar que não existe mais
     get_response = client.get(f"/oportunidades/{opp_id}")
     assert get_response.status_code == 404
+
+
+def test_remover_oportunidade_com_inscricoes(client: TestClient, session: Session):
+    """DELETE remove junto as inscrições vinculadas (cascade), sem 500.
+
+    Sem cascade, o SQLAlchemy tenta anular `inscricoes.oportunidade_id` ao
+    apagar a vaga e o commit falha com IntegrityError — o cliente recebia
+    500 em vez do 204 esperado.
+    """
+    org = criar_organizacao(session)
+    vol = criar_voluntario(session)
+    token_org = fazer_login(client, org.email)
+    token_vol = fazer_login(client, vol.email)
+
+    opp_id = criar_oportunidade(client, token_org)
+    inscrever(client, token_vol, opp_id)
+    assert len(listar_inscricoes(session)) == 1
+
+    response = client.delete(
+        f"/oportunidades/{opp_id}",
+        headers={"Authorization": f"Bearer {token_org}"},
+    )
+    assert response.status_code == 204
+
+    # Vaga e inscrições não existem mais — nada de registro órfão
+    assert session.get(Oportunidade, opp_id) is None
+    assert listar_inscricoes(session) == []
 
 
 def test_remover_oportunidade_nao_dono(client: TestClient, session: Session):

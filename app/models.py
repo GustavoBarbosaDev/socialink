@@ -45,7 +45,13 @@ class Oportunidade(SQLModel, table=True):
 
     # Relacionamentos
     organizacao: Usuario = Relationship(back_populates="oportunidades")
-    inscricoes: list["Inscricao"] = Relationship(back_populates="oportunidade")
+    # As inscrições pertencem à vaga: apagar a vaga apaga as inscrições.
+    # Sem o cascade, o SQLAlchemy anula inscricoes.oportunidade_id e o
+    # commit falha com IntegrityError (o cliente via 500 no DELETE).
+    inscricoes: list["Inscricao"] = Relationship(
+        back_populates="oportunidade",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
 
 
 # Model da Inscricao
