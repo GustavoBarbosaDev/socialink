@@ -5,6 +5,11 @@ uvicorn[standard]>=0.24.0
 # ORM e modelagem
 sqlmodel>=0.0.14
 
+# Driver do PostgreSQL (produção/deploy)
+# Pino obrigatório: sem ele o pip instala a última versão, que pode quebrar
+# em build de produção (mesma lição do bcrypt==4.0.1 no Dia 12)
+psycopg2-binary==2.9.13
+
 # Configurações com validação (usado em config.py)
 pydantic-settings>=2.1.0
 
