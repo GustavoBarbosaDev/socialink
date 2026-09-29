@@ -35,6 +35,26 @@ def test_requirements_traz_driver_do_postgres():
     assert "==" in driver[0], "driver do PostgreSQL precisa de versão pinada"
 
 
+def test_email_str_tem_dependencia_declarada():
+    """O EmailStr de schemas.py tem o email-validator no requirements.
+
+    Diferente dos demais imports, este é implícito: quem importa o
+    pacote é o pydantic, dentro do EmailStr — uma varredura de imports
+    no código não vê. Sem a linha, o build do Vercel instala só o
+    requirements e a função morre no boot com FUNCTION_INVOCATION_FAILED.
+    """
+    linhas = [
+        linha.strip()
+        for linha in (RAIZ / "requirements.txt").read_text(encoding="utf-8").splitlines()
+    ]
+    declaracao = [linha for linha in linhas if linha.startswith("email-validator")]
+
+    assert declaracao, "requirements.txt sem email-validator (exigido por EmailStr)"
+    assert any(operador in declaracao[0] for operador in ("==", ">=")), (
+        "email-validator precisa de versão declarada"
+    )
+
+
 def test_vercel_json_e_valido():
     """vercel.json é JSON válido e aponta para o schema oficial."""
     configuracao = json.loads((RAIZ / "vercel.json").read_text(encoding="utf-8"))

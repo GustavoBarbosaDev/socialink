@@ -13,6 +13,10 @@ psycopg2-binary==2.9.13
 # Configurações com validação (usado em config.py)
 pydantic-settings>=2.1.0
 
+# Validação de EmailStr (usado em schemas.py)
+# Sem ele, importar app.schemas falha: "email-validator is not installed"
+email-validator>=2.0.0
+
 # Autenticação JWT
 python-jose[cryptography]>=3.3.0
 

@@ -16,14 +16,19 @@ publicadas por ONGs e coletivos comunitários.
 
 ## Status do projeto
 
-**Dia 13 concluído** — preparação do deploy no **Vercel**. O `vercel.json`
+**Dia 13 concluído; Dia 14 em andamento** — preparação do deploy no
+**Vercel** (Dia 13) e primeira publicação (Dia 14). O `vercel.json`
 aponta o entrypoint que o provedor procura (`app/main.py`), o
 `requirements.txt` ganhou o driver do PostgreSQL **com versão pinada**, e
 `app/database.py` normaliza o alias antigo `postgres://` (que Neon/Vercel
 ainda emitem e o SQLAlchemy 2.0 rejeita) além de ligar `pool_pre_ping`
-para conexões stales em serverless. `.python-version` trava a versão do
-build na mesma do desenvolvimento. **108 testes cobrem 100% das linhas
-de `app/`** — os 10 novos fiscalizam o contrato do deploy.
+para conexões stales em serverless. O primeiro deploy ainda expôs uma
+dependência **implícita**: o `email-validator`, exigido pelo `EmailStr`
+de `schemas.py`, nunca havia entrado no `requirements.txt` — só existia
+na máquina de dev, e a função morria no Vercel com
+`FUNCTION_INVOCATION_FAILED`. **109 testes cobrem 100% das linhas
+de `app/`** — os 11 do contrato de deploy fiscalizam driver, entrypoint
+e essa dependência oculta.
 
 A API responde erros padronizados desde o Dia 11: `{"detail": ...}` (e
 `{"detail": [{"campo", "mensagem"}]}` no 422), inclusive os levantados
@@ -82,15 +87,15 @@ O `pytest.ini` na raiz já aponta para `tests/`, adiciona o projeto ao
 `pythonpath` e habilita o `pytest-cov` — todo `pytest` imprime, ao final,
 a cobertura de `app/`.
 
-**108 testes, 100% de cobertura das linhas.** A suite cobre autenticação
+**109 testes, 100% de cobertura das linhas.** A suite cobre autenticação
 (registro e login), CRUD de oportunidades, autorização por dono,
 inscrição de voluntários, a decisão da organização, o contrato de erro
 (400/401/403/404/405/409/422/500), a configuração de entrega
 (`.env.example` × `app/config.py`, defaults seguros e o guard de
 `SECRET_KEY`), o contrato de deploy (`vercel.json`, entrypoint, driver
-do PostgreSQL e normalização da URL) — incluindo validações de entrada,
-regra "não duplicar", máquina de estados de status, lifespan da
-aplicação e o corpo dos erros em si.
+do PostgreSQL, `email-validator` e normalização da URL) — incluindo
+validações de entrada, regra "não duplicar", máquina de estados de
+status, lifespan da aplicação e o corpo dos erros em si.
 
 ```bash
 pytest tests/test_auth.py -q      # roda um arquivo
