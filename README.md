@@ -1,236 +1,255 @@
 # Socialink
 
-API backend que conecta **voluntários** a **oportunidades de voluntariado**
-publicadas por ONGs e coletivos comunitários.
+**API REST de voluntariado** — conecta voluntários a oportunidades de trabalho comunitário publicadas por ONGs e coletivos.
 
-> Veja o [plan.md](./plan.md) para o problema que o projeto resolve, a
-> modelagem de dados completa e o roadmap dia a dia.
+![Status](https://img.shields.io/badge/status-API%20online-brightgreen?style=flat-square)
+[![CI](https://github.com/GustavoBarbosaDev/socialink/actions/workflows/ci.yml/badge.svg)](https://github.com/GustavoBarbosaDev/socialink/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-framework-009688?style=flat-square&logo=fastapi&logoColor=white)
+![Testes](https://img.shields.io/badge/testes-111%20%C2%B7%20100%25%20cobertura-2ea44f?style=flat-square)
+
+**Demo:** https://socialink-gilt.vercel.app &nbsp;|&nbsp; **Swagger:** [/docs](https://socialink-gilt.vercel.app/docs) &nbsp;|&nbsp; **Plano:** [plan.md](./plan.md)
+
+---
+
+## Sobre o projeto
+
+Muitas ONGs pequenas ainda organizam vagas de voluntariado por planilha,
+WhatsApp ou formulário — sem histórico de quem se candidatou, sem filtro e
+sem controle de status. O Socialink resolve isso com uma API backend:
+
+- **Organizações** publicam oportunidades e decidem sobre as candidaturas;
+- **Voluntários** se inscrevem nas vagas e acompanham o andamento;
+- **Autenticação JWT** e autorização por papel e por dono do recurso
+  garantem que cada um aja apenas onde pode.
+
+O roadmap completo (problema, modelagem de dados e evolução) está no
+[plan.md](./plan.md).
+
+## Recursos
+
+- **Autenticação** — registro e login com JWT (`python-jose`) e senhas com bcrypt
+- **Autorização em dois níveis** — papel (`organizacao` / `voluntario`) e dono do recurso
+- **CRUD de oportunidades** — criação, listagem, edição e remoção restritas ao dono
+- **Fluxo de inscrição** — candidatura única (409 em duplicidade) e decisão aprovar/recusar com máquina de estados
+- **Contrato de erro padronizado** — `{"detail": ...}` em todos os caminhos, inclusive erros do próprio framework
+- **Configuração validada no boot** — a aplicação recusa `SECRET_KEY` ausente ou placeholder
+- **Deploy no Vercel** — PostgreSQL (Neon), `pool_pre_ping` para serverless e smoke test de ponta a ponta
+- **111 testes com 100% de cobertura de linhas** em `app/`, suíte hermética (banco em memória por teste)
+- **CI no GitHub Actions** — a suíte roda a cada push e a cada pull request
 
 ## Stack
 
-- [FastAPI](https://fastapi.tiangolo.com/) — framework web
-- [SQLModel](https://sqlmodel.tiangolo.com/) — ORM (SQLAlchemy + Pydantic)
-- SQLite (dev) / PostgreSQL (produção — obrigatório no Vercel, filesystem efêmero)
-- JWT (`python-jose`) + `passlib` (hash de senha)
-- `pytest` para testes
+| Camada | Escolha | Por quê |
+|---|---|---|
+| Framework web | **FastAPI** | Validação automática, injeção de dependência e Swagger gerado |
+| ORM | **SQLModel** | Une Pydantic e SQLAlchemy, menos boilerplate |
+| Banco | **SQLite** (dev) / **PostgreSQL** (produção) | Zero config local e persistência real no Vercel |
+| Auth | **JWT** + **bcrypt** | Padrão de mercado para API stateless |
+| Testes | **pytest** + `TestClient` | Teste de contrato na camada de rota |
+| Deploy | **Vercel Functions** | Deploy contínuo a partir da `main` |
 
-## Status do projeto
+## Estrutura
 
-**Dia 14 concluído — roadmap completo.** A API está publicada em
-**https://socialink-gilt.vercel.app** com PostgreSQL (Neon) e variáveis
-de ambiente do provedor. O smoke test passou de ponta a ponta: `/health`,
-registro, login e **persistência entre deploys** — os dados sobrevivem a
-um novo deploy, provando que moram no banco e não no disco efêmero da
-função. O guard de `SECRET_KEY` foi validado ao vivo: um deploy sem a
-variável derruba a função com a mensagem exata de `app/config.py`
-(log capturado no relatório do Dia 14).
+```
+socialink/
+├── .github/workflows/ci.yml # CI: pytest a cada push/PR
+├── LICENSE                  # MIT
+├── app/
+│   ├── config.py            # Settings validados (guard de SECRET_KEY)
+│   ├── database.py          # Engine, sessão e normalização da URL Postgres
+│   ├── dependencies.py      # get_current_user e autorização por papel/dono
+│   ├── errors.py            # Mensagens, exceções de domínio e handlers
+│   ├── main.py              # Ponto de entrada FastAPI (lifespan)
+│   ├── models.py            # Models SQLModel (Usuario, Oportunidade, Inscricao)
+│   ├── schemas.py           # Schemas Pydantic de request/response
+│   └── routers/
+│       ├── auth.py          # /auth/registrar, /auth/login
+│       ├── oportunidades.py # CRUD de oportunidades
+│       └── inscricoes.py    # Candidatura, listagem e decisão
+├── tests/                   # 111 testes (suíte hermética)
+├── docs/                    # Relatórios técnicos dia a dia
+├── plan.md                  # Problema, modelagem e roadmap
+├── pytest.ini               # testpaths + cobertura
+├── requirements.txt         # Dependências
+└── vercel.json              # Entrypoint e exclusões do bundle
+```
 
-A preparação (Dia 13) deixou `vercel.json` apontando o entrypoint
-(`app/main.py`), `psycopg2-binary` **pinado** no `requirements.txt`, e
-`app/database.py` normalizando o alias antigo `postgres://` além de
-ligar `pool_pre_ping`. O Dia 14 expôs e corrigiu dois bloqueadores
-empilhados: a dependência **implícita** `email-validator` (exigida pelo
-`EmailStr`, nunca declarada — instalada só na máquina de dev) e o
-`.vercelignore`, que fecha o upload do `.env` local em deploys via CLI.
-**110 testes cobrem 100% das linhas de `app/`** — os 12 do contrato de
-deploy fiscalizam driver, entrypoint, dependências ocultas e segredos
-no upload.
-
-A API responde erros padronizados desde o Dia 11: `{"detail": ...}` (e
-`{"detail": [{"campo", "mensagem"}]}` no 422), inclusive os levantados
-pelo próprio framework, com as mensagens centralizadas em `app/errors.py`.
-A implementação segue o [roadmap](./plan.md#7-roadmap-dia-a-dia).
-
-## Como rodar localmente
+## Início rápido
 
 ```bash
-# 1. Criar e ativar o ambiente virtual
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+# 1. Clonar e entrar no projeto
+git clone https://github.com/GustavoBarbosaDev/socialink.git
+cd socialink
 
-# 2. Instalar dependências
+# 2. Ambiente virtual e dependências
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# 3. Copiar as variáveis de ambiente e gerar a chave
-#    (obrigatório: sem SECRET_KEY real a API não sobe)
+# 3. Variáveis de ambiente (obrigatório: sem chave real a API não sobe)
 cp .env.example .env
-openssl rand -hex 32    # cole o resultado no SECRET_KEY do .env
+openssl rand -hex 32            # cole o resultado no SECRET_KEY do .env
 
-# 4. Rodar o servidor
+# 4. Subir o servidor
 uvicorn app.main:app --reload
 ```
 
-A API sobe em `http://127.0.0.1:8000`. A documentação interativa (Swagger)
-fica em `http://127.0.0.1:8000/docs`.
+A API sobe em `http://127.0.0.1:8000` e a documentação interativa em
+`http://127.0.0.1:8000/docs`.
+
+> **Windows:** os comandos acima assumem bash; no PowerShell use
+> `venv\Scripts\Activate.ps1`.
 
 ## Variáveis de ambiente
 
 Todas são lidas do `.env` (em produção, das variáveis do provedor) e têm
-valor padrão em [`app/config.py`](./app/config.py). O `.env.example` traz
-as sete — `tests/test_config.py` falha se uma nova aparecer no código sem
-ser documentada.
+valor padrão em [`app/config.py`](./app/config.py). O `.env.example` traz as
+sete — `tests/test_config.py` falha se uma nova aparecer no código sem ser
+documentada.
 
-| Variável | Padrão | O que faz |
+| Variável | Padrão | Descrição |
 |---|---|---|
-| `APP_NAME` | `Socialink` | nome exibido no `/` e no Swagger |
-| `APP_VERSION` | `0.1.0` | versão exibida no `/` e no Swagger |
-| `DEBUG` | `false` | `true` liga o log de queries SQL do engine (dev) |
-| `DATABASE_URL` | `sqlite:///./socialink.db` | banco de dados; PostgreSQL em produção |
-| `SECRET_KEY` | *(obrigatória)* | assinatura do JWT — **gere com `openssl rand -hex 32`**; a app recusa placeholder |
-| `JWT_ALGORITHM` | `HS256` | algoritmo de assinatura do token |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | validade do token |
+| `APP_NAME` | `Socialink` | Nome exibido no `/` e no Swagger |
+| `APP_VERSION` | `0.1.0` | Versão exibida no `/` e no Swagger |
+| `DEBUG` | `false` | `true` ativa o log de queries SQL (dev) |
+| `DATABASE_URL` | `sqlite:///./socialink.db` | Banco de dados; PostgreSQL em produção |
+| `SECRET_KEY` | *(obrigatória)* | Assinatura do JWT — gere com `openssl rand -hex 32` |
+| `JWT_ALGORITHM` | `HS256` | Algoritmo de assinatura do token |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `30` | Validade do token |
 
-> O `.env` está no `.gitignore` e nunca deve ser committado — o histórico
-> do repositório é cheio o bastante para um segredo vazado.
+> O `.env` está no `.gitignore` e nunca deve ser committado.
 
-## Rodando os testes
+## API
 
-```bash
-pytest
+### Endpoints
+
+| Método | Rota | Descrição | Acesso |
+|---|---|---|---|
+| POST | `/auth/registrar` | Cria usuário (organização ou voluntário) | público |
+| POST | `/auth/login` | Retorna um token JWT | público |
+| GET | `/oportunidades/` | Lista oportunidades | público |
+| POST | `/oportunidades/` | Cria oportunidade | organização |
+| GET | `/oportunidades/{id}` | Detalha oportunidade | público |
+| PATCH | `/oportunidades/{id}` | Atualiza oportunidade | dono |
+| DELETE | `/oportunidades/{id}` | Remove oportunidade | dono |
+| POST | `/oportunidades/{id}/inscricoes` | Voluntário se candidata | voluntário |
+| GET | `/oportunidades/{id}/inscricoes` | Lista inscrições da vaga | dono |
+| GET | `/voluntario/me/inscricoes` | Lista inscrições do voluntário | voluntário |
+| PATCH | `/inscricoes/{id}` | Aprova ou recusa inscrição | dono |
+
+### Contrato de erros
+
+Toda resposta de erro segue `{"detail": ...}`:
+
+```jsonc
+// 401 — token ausente ou inválido
+{"detail": "Credenciais inválidas"}
+
+// 409 — regra de negócio violada
+{"detail": "Voluntário já inscrito nesta oportunidade"}
+
+// 422 — validação de entrada (lista campo + mensagem)
+{"detail": [{"campo": "body.email", "mensagem": "value is not a valid email address..."}]}
 ```
 
-O `pytest.ini` na raiz já aponta para `tests/`, adiciona o projeto ao
-`pythonpath` e habilita o `pytest-cov` — todo `pytest` imprime, ao final,
-a cobertura de `app/`.
+Os handlers estão centralizados em [`app/errors.py`](./app/errors.py) e
+cubrem também os erros levantados pelo próprio framework (rota inexistente,
+método não permitido, exceção não tratada → mensagem genérica no cliente,
+detalhe no log).
 
-**110 testes, 100% de cobertura das linhas.** A suite cobre autenticação
-(registro e login), CRUD de oportunidades, autorização por dono,
-inscrição de voluntários, a decisão da organização, o contrato de erro
-(400/401/403/404/405/409/422/500), a configuração de entrega
-(`.env.example` × `app/config.py`, defaults seguros e o guard de
-`SECRET_KEY`), o contrato de deploy (`vercel.json`, entrypoint, driver
-do PostgreSQL, `email-validator`, normalização da URL e
-`.vercelignore`) — incluindo validações de entrada, regra "não
-duplicar", máquina de estados de status, lifespan da aplicação e o
-corpo dos erros em si.
+### Exemplos rápidos
 
 ```bash
-pytest tests/test_auth.py -q      # roda um arquivo
-pytest -k inscricao -q            # roda pelo nome do teste
-pytest --cov-fail-under=95        # só se quiser travar o piso de cobertura
+BASE=https://socialink-gilt.vercel.app
+
+# Saúde
+curl -s $BASE/health
+# {"status":"ok"}
+
+# Registrar organização
+curl -s -X POST $BASE/auth/registrar \
+  -H "Content-Type: application/json" \
+  -d '{"nome":"Coletivo Raiz","email":"contato@raiz.org","senha":"senha123","papel":"organizacao"}'
+# 201 {"id":1,"nome":"Coletivo Raiz","email":"contato@raiz.org","papel":"organizacao"}
+
+# Login
+curl -s -X POST $BASE/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"contato@raiz.org","senha":"senha123"}'
+# 200 {"access_token":"...","token_type":"bearer"}
 ```
 
-## Deploy no Vercel
+Com o token em mãos, basta enviar `Authorization: Bearer <access_token>` nas
+demais rotas — no Swagger ([/docs](https://socialink-gilt.vercel.app/docs))
+isso é automático pelo botão **Authorize**.
 
-A API sobe como Vercel Function com **detecção automática**: o Vercel
-procura uma instância `app` em `app/main.py` (é o que `vercel.json`
-configura) e instala tudo que está no `requirements.txt` — não há
-start command, `Procfile` nem build script.
+## Testes
 
-1. **Banco de dados:** o filesystem da função é efêmero, então o SQLite
-   não serve para produção. Crie um PostgreSQL gratuito — o caminho mais
-   rápido é a própria CLI, de dentro do projeto:
+```bash
+pytest                                # roda tudo + cobertura
+pytest tests/test_auth.py -q          # um arquivo
+pytest -k inscricao -q                # pelo nome
+pytest --cov-fail-under=95            # trava piso de cobertura
+```
+
+O `pytest.ini` aponta para `tests/`, adiciona o projeto ao `pythonpath` e
+habilita o `pytest-cov` — todo `pytest` imprime a cobertura de `app/` ao
+final. A mesma suíte roda no GitHub Actions a cada push e a cada pull
+request (badge no topo).
+
+A suíte cobre autenticação, CRUD, autorização por dono, inscrição e decisão,
+contrato de erro (400/401/403/404/405/409/422/500), configuração
+(`.env.example` × `config.py`, defaults e guard de `SECRET_KEY`), contrato
+de deploy (`vercel.json`, entrypoint, driver do PostgreSQL,
+`email-validator`, `.vercelignore`) e o corpo dos erros em si.
+
+> Os testes rodam em banco SQLite em memória, isolados por caso — não
+> dependem do `.env` nem da sua chave secreta.
+
+## Deploy
+
+A API roda como Vercel Function com detecção automática: o Vercel procura a
+instância `app` em `app/main.py` e instala tudo que está no
+`requirements.txt`.
+
+1. **Banco:** o filesystem da função é efêmero, então o SQLite não serve
+   para produção. Crie um PostgreSQL gratuito direto do projeto:
 
    ```bash
-   npx vercel integration add neon    # cria o banco e injeta DATABASE_URL
+   npx vercel integration add neon   # cria o banco e injeta DATABASE_URL
    ```
 
-   A integração injeta `DATABASE_URL` nos três ambientes (Production,
-   Preview e Development). Alternativa pelo painel: *Storage →
-   Marketplace → Neon*.
-2. **Variáveis de ambiente** em *Settings → Environment Variables*
-   (ou `npx vercel env add SECRET_KEY production`), **antes** do
-   primeiro deploy:
+2. **Variáveis de ambiente** (*Settings → Environment Variables*), **antes**
+   do primeiro deploy:
 
    | Variável | Valor |
    |---|---|
    | `SECRET_KEY` | gere com `openssl rand -hex 32` |
-   | `DATABASE_URL` | a string de conexão do Neon (`postgres://...` funciona: o código normaliza) |
+   | `DATABASE_URL` | string de conexão do Neon (`postgres://` funciona: o código normaliza) |
 
-   `DEBUG` e o resto podem ficar ausentes — os defaults de
-   [`app/config.py`](./app/config.py) já são seguros.
-3. **Importar o repositório:** [vercel.com/new](https://vercel.com/new) →
-   escolher o repo → *Deploy*. Pushes na `main` disparam novos deploys.
-4. **Smoke test na URL pública:**
+3. **Deploy:** importe o repositório em [vercel.com/new](https://vercel.com/new) —
+   pushes na `main` disparam novos deploys.
 
-   ```bash
-   curl https://<projeto>.vercel.app/health    # {"status":"ok"}
+4. **Smoke test:** rode os `curl` da seção [Exemplos rápidos](#exemplos-rápidos)
+   contra a URL pública e confirme que dados persistem entre deploys.
 
-   curl -X POST https://<projeto>.vercel.app/auth/registrar \
-     -H "Content-Type: application/json" \
-     -d '{"nome":"Smoke","email":"smoke@exemplo.com","senha":"senha123"}'
+> **Sem `SECRET_KEY` a função falha ao iniciar** com a mensagem do guard de
+> `app/config.py` — comportamento intencional, validado em produção.
 
-   curl -X POST https://<projeto>.vercel.app/auth/login \
-     -H "Content-Type: application/json" \
-     -d '{"email":"smoke@exemplo.com","senha":"senha123"}'
-   ```
-
-> Sem `SECRET_KEY`, a função **falha ao iniciar** com a mensagem do guard
-> de `app/config.py` — é o comportamento intencional do Dia 12, não um
-> bug do deploy (validado ao vivo no Dia 14, log no relatório).
-
-> **Deploys via CLI** (`npx vercel deploy`) enviam os arquivos da
-> máquina, não o commit — por isso existe o `.vercelignore`, que
-> bloqueia `.env*`, venvs e `*.db` no upload. Sem ele, o `.env` local
-> subia junto e o guard passava com a chave de dev.
-
-## Estrutura do projeto
-
-```
-socialink/
-├── .gitignore
-├── .env.example          # variáveis de ambiente (copie para .env)
-├── .python-version       # versão de Python do deploy (3.12)
-├── .vercelignore         # segredos/lixo fora do upload da CLI
-├── README.md
-├── plan.md               # problema, modelagem e roadmap completo
-├── pytest.ini            # configuração do pytest (testpaths + cobertura)
-├── requirements.txt      # dependências do projeto
-├── vercel.json           # entrypoint e exclusões do bundle da função
-├── app/
-│   ├── __init__.py
-│   ├── config.py         # configurações centralizadas
-│   ├── database.py       # engine e sessão do banco (normaliza URL Postgres)
-│   ├── dependencies.py   # get_current_user e autorização por papel/dono
-│   ├── errors.py         # mensagens, exceções de domínio e exception handlers
-│   ├── main.py           # ponto de entrada FastAPI (lifespan)
-│   ├── models.py         # models SQLModel (Usuario, Oportunidade, Inscricao)
-│   ├── schemas.py        # schemas Pydantic para request/response
-│   └── routers/
-│       ├── auth.py         # endpoints de autenticação (registrar, login)
-│       ├── oportunidades.py# CRUD de oportunidades (só dono edita/remove)
-│       └── inscricoes.py   # inscrição, listagem e decisão (aprovar/recusar)
-├── tests/
-│   ├── __init__.py
-│   ├── conftest.py       # fixtures compartilhadas (session, client)
-│   ├── helpers.py        # builders de cenário (usuários, vagas, login)
-│   ├── test_app.py       # raiz, health e lifespan
-│   ├── test_auth.py      # testes de autenticação
-│   ├── test_config.py    # .env.example × config.py + guard de SECRET_KEY
-│   ├── test_deploy.py    # vercel.json, entrypoint, driver Postgres
-│   ├── test_dependencies.py # testes de get_current_user e get_session
-│   ├── test_erros.py     # contrato de erro (handlers, 422, 500)
-│   ├── test_oportunidades.py # testes do CRUD e autorização
-│   └── test_inscricoes.py  # testes de inscrição, listagem e decisão
-└── docs/
-    └── relatorio-dia1.md … relatorio-dia14.md  # 14 relatórios técnicos
-```
-
-## Principais endpoints
-
-| Método | Rota | Descrição | Status |
-|---|---|---|---|
-| POST | `/auth/registrar` | Cria um usuário (organização ou voluntário) | Implementado |
-| POST | `/auth/login` | Retorna um token JWT | Implementado |
-| GET | `/oportunidades` | Lista oportunidades | Implementado |
-| POST | `/oportunidades` | Cria oportunidade (só organização) | Implementado |
-| PATCH | `/oportunidades/{id}` | Atualiza oportunidade (só o dono) | Implementado |
-| DELETE | `/oportunidades/{id}` | Remove oportunidade (só o dono) | Implementado |
-| POST | `/oportunidades/{id}/inscricoes` | Voluntário se candidata a uma vaga | Implementado |
-| GET | `/voluntario/me/inscricoes` | Lista as inscrições do voluntário | Implementado |
-| GET | `/oportunidades/{id}/inscricoes` | Lista as inscrições da vaga (só a dona) | Implementado |
-| PATCH | `/inscricoes/{id}` | Organização aprova ou recusa uma inscrição | Implementado |
-
-Lista completa em [plan.md](./plan.md#5-endpoints-da-api).
+> **Deploys via CLI** (`npx vercel deploy`) enviam os arquivos da máquina,
+> não o commit: por isso existe o `.vercelignore`, que bloqueia `.env*`,
+> ambientes virtuais e `*.db` no upload.
 
 ## Próximos passos
 
-O roadmap do `plan.md` está concluído (Dia 1 a 14). As evoluções
-sugeridas para depois do MVP estão em
-[plan.md §9](./plan.md#9-ideias-de-evolução-depois-do-mvp) — paginação
-e busca, e-mail de confirmação, Docker, rate limiting e migrações
-versionadas com Alembic.
+O roadmap do [plan.md](./plan.md) está concluído (MVP completo). As evoluções
+previstas para depois do MVP estão em
+[plan.md §9](./plan.md#9-ideias-de-evolução-depois-do-mvp): paginação e
+busca, e-mail de confirmação, Docker, rate limiting e migrações versionadas
+com Alembic.
 
 ## Licença
 
-Uso livre para fins de estudo e portfólio.
+Distribuído sob a licença [MIT](./LICENSE) — livre para uso, estudo e
+modificação, inclusive em fins comerciais.
