@@ -38,6 +38,24 @@ def test_criar_oportunidade_sucesso(client: TestClient, session: Session):
     assert "id" in data
 
 
+def test_criar_oportunidade_data_sem_timezone(client: TestClient, session: Session):
+    """Data sem offset (o formato que o Swagger gera) é aceita e vira UTC.
+
+    O SQLModel ≥ 0.0.47 recusa datetime naive na gravação; sem a
+    normalização de `app/schemas.py`, este POST devolveria 500.
+    """
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
+
+    response = client.post(
+        "/oportunidades/",
+        json=dados_oportunidade(data="2026-10-15T09:00:00"),
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 201
+    assert response.json()["data"].startswith("2026-10-15T09:00")
+
+
 def test_criar_oportunidade_sem_token(client: TestClient):
     response = client.post("/oportunidades/", json=dados_oportunidade())
     assert response.status_code == 401
@@ -171,6 +189,27 @@ def test_atualizar_oportunidade_dono(client: TestClient, session: Session):
     data = response.json()
     assert data["titulo"] == "Título Atualizado"
     assert data["descricao"] == "Ajudar na organização de doações para famílias carentes"
+
+
+def test_atualizar_oportunidade_data_sem_timezone(
+    client: TestClient, session: Session
+):
+    """PATCH com `data` sem offset também é normalizado para UTC.
+
+    Mesmo caminho do POST: sem a normalização de `app/schemas.py`, o
+    SQLModel ≥ 0.0.47 recusaria a gravação e o cliente veria 500.
+    """
+    org = criar_organizacao(session)
+    token = fazer_login(client, org.email)
+    opp_id = criar_oportunidade(client, token)
+
+    response = client.patch(
+        f"/oportunidades/{opp_id}",
+        json={"data": "2026-11-20T14:30:00"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["data"].startswith("2026-11-20T14:30")
 
 
 def test_atualizar_oportunidade_nao_dono(client: TestClient, session: Session):

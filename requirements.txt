@@ -3,7 +3,9 @@ fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 
 # ORM e modelagem
-sqlmodel>=0.0.14
+# Pino para CI e produção reproduzirem exatamente o que a suíte valida
+# (mesma lógica de bcrypt==4.0.1 e psycopg2-binary==2.9.13)
+sqlmodel==0.0.47
 
 # Driver do PostgreSQL (produção/deploy)
 # Pino obrigatório: sem ele o pip instala a última versão, que pode quebrar

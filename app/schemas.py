@@ -1,6 +1,19 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from app.models import PapelUsuario, StatusInscricao
+
+
+def assumir_utc(valor: datetime | None) -> datetime | None:
+    """Aceita datetime sem offset (padrão do Swagger e de muitos clientes)
+    e o trata como UTC.
+
+    O SQLModel ≥ 0.0.47 recusa datetime naive na gravação — sem esta
+    normalização, `POST /oportunidades` com "2026-10-15T09:00:00"
+    estouraria um 500 em vez de salvar.
+    """
+    if valor is not None and valor.tzinfo is None:
+        return valor.replace(tzinfo=timezone.utc)
+    return valor
 
 
 class UsuarioCreate(BaseModel):
@@ -41,6 +54,11 @@ class OportunidadeCreate(BaseModel):
     data: datetime
     vagas_disponiveis: int = Field(ge=1)
 
+    @field_validator("data")
+    @classmethod
+    def data_em_utc(cls, valor: datetime) -> datetime:
+        return assumir_utc(valor)  # type: ignore[return-value]
+
 
 class OportunidadeResponse(BaseModel):
     """Schema para resposta de dados da oportunidade."""
@@ -62,6 +80,11 @@ class OportunidadeUpdate(BaseModel):
     local: str | None = None
     data: datetime | None = None
     vagas_disponiveis: int | None = Field(default=None, ge=1)
+
+    @field_validator("data")
+    @classmethod
+    def data_em_utc(cls, valor: datetime | None) -> datetime | None:
+        return assumir_utc(valor)
 
 
 class InscricaoResponse(BaseModel):

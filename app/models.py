@@ -1,5 +1,5 @@
 from enum import Enum
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from sqlmodel import SQLModel, Field, Relationship
 
@@ -62,7 +62,8 @@ class Inscricao(SQLModel, table=True):
     oportunidade_id: int = Field(foreign_key="oportunidades.id")
     voluntario_id: int = Field(foreign_key="usuarios.id")
     status: StatusInscricao = Field(default=StatusInscricao.PENDENTE)
-    criado_em: datetime = Field(default_factory=datetime.now)
+    # UTC consciente: o SQLModel ≥ 0.0.47 recusa datetime naive na gravação
+    criado_em: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Relacionamentos
     oportunidade: Oportunidade = Relationship(back_populates="inscricoes")

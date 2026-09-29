@@ -6,7 +6,7 @@
 [![CI](https://github.com/GustavoBarbosaDev/socialink/actions/workflows/ci.yml/badge.svg)](https://github.com/GustavoBarbosaDev/socialink/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-3776AB?style=flat-square&logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-framework-009688?style=flat-square&logo=fastapi&logoColor=white)
-![Testes](https://img.shields.io/badge/testes-111%20%C2%B7%20100%25%20cobertura-2ea44f?style=flat-square)
+![Testes](https://img.shields.io/badge/testes-113%20%C2%B7%20100%25%20cobertura-2ea44f?style=flat-square)
 
 **Demo:** https://socialink-gilt.vercel.app &nbsp;|&nbsp; **Swagger:** [/docs](https://socialink-gilt.vercel.app/docs) &nbsp;|&nbsp; **Plano:** [plan.md](./plan.md)
 
@@ -35,7 +35,7 @@ O roadmap completo (problema, modelagem de dados e evolução) está no
 - **Contrato de erro padronizado** — `{"detail": ...}` em todos os caminhos, inclusive erros do próprio framework
 - **Configuração validada no boot** — a aplicação recusa `SECRET_KEY` ausente ou placeholder
 - **Deploy no Vercel** — PostgreSQL (Neon), `pool_pre_ping` para serverless e smoke test de ponta a ponta
-- **111 testes com 100% de cobertura de linhas** em `app/`, suíte hermética (banco em memória por teste)
+- **113 testes com 100% de cobertura de linhas** em `app/`, suíte hermética (banco em memória por teste)
 - **CI no GitHub Actions** — a suíte roda a cada push e a cada pull request
 
 ## Stack
@@ -67,7 +67,7 @@ socialink/
 │       ├── auth.py          # /auth/registrar, /auth/login
 │       ├── oportunidades.py # CRUD de oportunidades
 │       └── inscricoes.py    # Candidatura, listagem e decisão
-├── tests/                   # 111 testes (suíte hermética)
+├── tests/                   # 113 testes (suíte hermética)
 ├── docs/                    # Relatórios técnicos dia a dia
 ├── plan.md                  # Problema, modelagem e roadmap
 ├── pytest.ini               # testpaths + cobertura
