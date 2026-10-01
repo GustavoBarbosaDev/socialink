@@ -40,7 +40,8 @@ class Oportunidade(SQLModel, table=True):
     descricao: str = Field(max_length=500)
     local: str = Field(max_length=150)
     data: datetime
-    vagas_disponiveis: int = Field(ge=1)  #ge = greater than or equal (mínimo 1 vaga)
+    # Oportunidade publicada sem vaga a preencher não faz sentido: mínimo de 1.
+    vagas_disponiveis: int = Field(ge=1)
     organizacao_id: int = Field(foreign_key="usuarios.id")
 
     # Relacionamentos
