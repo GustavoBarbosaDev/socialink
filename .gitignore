@@ -43,3 +43,8 @@ build/
 .env*
 # ...exceto o exemplo, que é documentação e versiona
 !.env.example
+
+# Artefatos locais de ferramentas de agente de IA (não são parte do projeto)
+skills-lock.json
+.agents/
+.claude/
