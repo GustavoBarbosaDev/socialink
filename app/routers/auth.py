@@ -22,17 +22,17 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 settings = get_settings()
 
 
-def get_password_hash(password: str) -> str:
+def gerar_hash_senha(password: str) -> str:
     """Gera o hash da senha usando bcrypt."""
     return pwd_context.hash(password)
 
 
-def verify_password(plain_password: str, hashed_password: str) -> bool:
+def verificar_senha(plain_password: str, hashed_password: str) -> bool:
     """Verifica se a senha plain confere com o hash."""
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(data: dict) -> str:
+def criar_access_token(data: dict) -> str:
     """Cria um token JWT com os dados fornecidos."""
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -52,7 +52,7 @@ def registrar(usuario: UsuarioCreate, session: Session = Depends(get_session)):
         raise RequisicaoInvalida(EMAIL_JA_CADASTRADO)
 
     # Criar hash da senha
-    senha_hash = get_password_hash(usuario.senha)
+    senha_hash = gerar_hash_senha(usuario.senha)
 
     # Criar novo usuário
     novo_usuario = Usuario(
@@ -77,10 +77,10 @@ def login(dados: LoginRequest, session: Session = Depends(get_session)):
     usuario = session.exec(stmt).first()
 
     # Verificar se o usuário existe e se a senha está correta
-    if not usuario or not verify_password(dados.senha, usuario.senha_hash):
+    if not usuario or not verificar_senha(dados.senha, usuario.senha_hash):
         raise NaoAutenticado(EMAIL_OU_SENHA_INCORRETOS)
 
     # Criar token JWT
-    access_token = create_access_token(data={"sub": usuario.email, "papel": usuario.papel})
+    access_token = criar_access_token(data={"sub": usuario.email, "papel": usuario.papel})
 
     return TokenResponse(access_token=access_token)

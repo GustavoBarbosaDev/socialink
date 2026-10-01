@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
 from app.models import Inscricao, Oportunidade, Usuario
-from app.routers.auth import get_password_hash
+from app.routers.auth import gerar_hash_senha
 
 
 def criar_organizacao(session: Session, email: str = "ong@example.com") -> Usuario:
@@ -18,7 +18,7 @@ def criar_organizacao(session: Session, email: str = "ong@example.com") -> Usuar
     usuario = Usuario(
         nome="ONG Teste",
         email=email,
-        senha_hash=get_password_hash("123456"),
+        senha_hash=gerar_hash_senha("123456"),
         papel="organizacao",
     )
     session.add(usuario)
@@ -34,7 +34,7 @@ def criar_voluntario(
     usuario = Usuario(
         nome="Voluntário Teste",
         email=email,
-        senha_hash=get_password_hash("123456"),
+        senha_hash=gerar_hash_senha("123456"),
         papel="voluntario",
     )
     session.add(usuario)

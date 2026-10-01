@@ -9,7 +9,7 @@ from app.database import get_session
 from app.dependencies import get_current_user
 from app.errors import CREDENCIAIS_INVALIDAS
 from app.models import Usuario
-from app.routers.auth import get_password_hash
+from app.routers.auth import gerar_hash_senha
 
 settings = get_settings()
 
@@ -39,7 +39,7 @@ def _criar_usuario(session: Session, email: str = "teste@example.com") -> Usuari
     usuario = Usuario(
         nome="Teste",
         email=email,
-        senha_hash=get_password_hash("123456"),
+        senha_hash=gerar_hash_senha("123456"),
         papel="voluntario",
     )
     session.add(usuario)
