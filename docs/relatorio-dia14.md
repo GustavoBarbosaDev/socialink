@@ -1,61 +1,49 @@
-# Relatório Técnico — Dia 14: Primeiro deploy e smoke test na URL pública
+# Dia 14 — primeiro deploy e smoke test na URL pública
 
-**Data:** 28/09/2026
-**Objetivo:** Deploy gratuito + smoke test de ponta a ponta (fim do roadmap)
-**Conceito principal:** Deploy de uma API real — variáveis de ambiente
-por ambiente, validação do guard em produção, persistência entre deploys
+28/09/2026, fim do roadmap. Objetivo do dia: subir a API numa URL pública,
+colocar o banco de produção no lugar e bater nos endpoints de ponta a
+ponta. O que o dia ensinou de verdade foi sobre variável de ambiente por
+ambiente, guard em produção e persistência entre deploys.
 
----
+## Como ficou
 
-## 1. O que foi feito
+A API está em <https://socialink-gilt.vercel.app>. Banco PostgreSQL no
+Neon (marketplace do Vercel, `sslmode=require`), `DATABASE_URL` nos três
+ambientes (Production, Preview, Development) e `SECRET_KEY` em Production
+e Preview — chaves independentes, cada ambiente assina seu próprio JWT.
+Smoke test no ar: `/health` 200, `/` 200, `POST /auth/registrar` 201,
+`POST /auth/login` 200 com token HS256 assinado no Vercel. Suíte de 108
+para 110 testes, 100% de cobertura.
 
-### 1.1 Meta do dia cumprida
+A prova que interessa não é o 200 do `/health`, é a persistência:
+registrei um usuário, mandei um redeploy, loguei com o mesmo usuário e
+voltou 200. Se os dados estivessem no disco da função, o login depois do
+deploy novo teria dado 401. Nos logs aparece o lifespan batendo no banco
+externo a cada cold start:
 
-| Meta | Resultado |
-|------|-----------|
-| Primeiro deploy na URL pública | ✅ https://socialink-gilt.vercel.app |
-| Banco PostgreSQL em produção | ✅ Neon criado via CLI, `DATABASE_URL` nos 3 ambientes |
-| Variáveis de ambiente do provedor | ✅ `SECRET_KEY` (Production + Preview) e `DATABASE_URL` (Production, Preview, Development) |
-| Smoke test: `/health`, registro, login | ✅ `200` / `201` / `200` com JWT assinado |
-| Persistência entre deploys | ✅ usuário registrado sobreviveu a um deploy novo |
-| Guard de `SECRET_KEY` validado ao vivo | ✅ log real capturado, mensagem exata do `app/config.py` |
-| Testes | 108 → **110 testes** (+2), **100%** de cobertura |
+```
+λ POST /auth/login
+Iniciando Socialink v0.1.0
+Tabelas criadas com sucesso!
+```
 
-### 1.2 Arquivos modificados/criados
+`criar_tabelas()` (o `create_all` do Dia 2) rodou no Neon, idempotente
+como sempre foi desenhado.
 
-| Arquivo | Ação |
-|---------|------|
-| `requirements.txt` | Modificado — `+email-validator>=2.0.0` (Dia 14) |
-| `tests/test_deploy.py` | Modificado — +2 testes: `email-validator` declarado e `.vercelignore` bloqueando segredos |
-| `.vercelignore` | **Criado** — `.env*`, venvs e `*.db` fora do upload da CLI |
-| `.gitignore` | Modificado — `.vercel`, `.env*` e a exceção `!.env.example` |
-| `README.md` | Modificado — status do Dia 14, URL pública, Neon via CLI, testes |
-| `docs/relatorio-dia14.md` | **Criado** — este relatório |
+Arquivos mexidos: `requirements.txt` ganhou `email-validator>=2.0.0`;
+`tests/test_deploy.py` cresceu em 2 testes; `.vercelignore` foi criado;
+`.gitignore` ganhou `.vercel`, `.env*` e a exceção `!.env.example`; README
+e este relatório atualizados. O que a integração do Neon instalou
+localmente (`.agents/`, `.claude/`, `skills-lock.json`) não é parte do
+projeto — hoje está no `.gitignore`.
 
-Fora do commit (instalados pela integração Neon, não são do projeto):
-`.agents/`, `.claude/`, `skills-lock.json`.
+## Os 500 que não queriam ir embora
 
----
-
-## 2. Detalhes técnicos
-
-### 2.1 A cronologia: 5 deploys de produção e 2 previews
-
-| # | Deploy | Tipo | Resultado | Causa |
-|---|--------|------|-----------|-------|
-| 1 | import do repo (Dia 12) | produção | ❌ 500 | guard: nenhuma env var existia |
-| 2 | `c524bd8` (Dia 13) | produção | ❌ 500 | mesmo guard — env vars continuavam ausentes |
-| 3 | `7302bd7` (fix do `email-validator`) | produção | ❌ 500 | guard ainda falhava **antes** de chegar no schemas |
-| 4 | redeploy com env vars + Neon | produção | ✅ 200 | tudo configurado |
-| 5 | redeploy (teste de persistência) | produção | ✅ 200 | dados sobreviveram |
-| 6 | preview sem `SECRET_KEY` (sem `.vercelignore`) | preview | ⚠️ 200 | **achado**: o `.env` local subiu no bundle |
-| 7 | preview sem `SECRET_KEY` (com `.vercelignore`) | preview | ❌ 500 + log | guard disparando como projetado |
-
-### 2.2 Bloqueador 1: o guard ao vivo (log real)
-
-Os deploys 1–3 morriam com `FUNCTION_INVOCATION_FAILED` — um 500 genérico
-que esconde o motivo. A prova veio do deploy 7 (preview sem
-`SECRET_KEY`), cujo log a CLI (`vercel logs`) capturou:
+Foram 7 deploys: 3 de produção falhando, 2 passando, 2 de preview
+servindo de laboratório. Os três primeiros morriam com
+`FUNCTION_INVOCATION_FAILED`, um 500 genérico que esconde o motivo. A
+prova do que acontecia veio no deploy de preview sem `SECRET_KEY`, cujo
+log a CLI capturou:
 
 ```
 File "/var/task/app/database.py", line 4, in <module>
@@ -69,55 +57,45 @@ Python process exited with exit status: 1
 ```
 
 A trilha confirma o desenho do Dia 12: `app/main.py:7` importa
-`app.database`, que chama `get_settings()` **no import** (linha 4) — ou
-seja, a app nem chega a montar rotas sem uma chave válida. O campo
-`input_value` do erro mostra `DATABASE_URL` já presente (Neon), só a
-`SECRET_KEY` faltando: a hipótese foi confirmada linha a linha.
+`app.database`, que chama `get_settings()` **no import** (linha 4) — a
+app nem chega a montar rotas sem uma chave válida. O `input_value` do
+erro mostrava `DATABASE_URL` já presente (Neon), só a `SECRET_KEY`
+faltando. O guard transformou um "deploy esquecido que funciona com
+segredo público" em "deploy que falha com instrução de correção", e a
+mensagem acionável chegou exatamente ao operador.
 
-> Lição: o guard transformou um "deploy esquecido que funciona com
-> segredo público" em "deploy que falha com instrução de correção". O
-> log mostra que a mensagem acionável chegou exatamente ao operador.
+## O email-validator era o próximo da fila
 
-### 2.3 Bloqueador 2: o `email-validator` era o próximo da fila
-
-Os deploys 1–3 nunca chegaram a executar `app/schemas.py`: o guard morre
-antes (a ordem dos imports em `main.py` garante isso). Ou seja, o bug do
-`email-validator` estava **empilhado** atrás do primeiro — quem olha só
-o 500 vê um problema, mas havia dois.
-
-A prova do segundo veio por simulação local (bloquear o import de
-`email_validator` com um finder em `sys.meta_path`, exatamente como o
-build limpo do Vercel o teria):
+Os primeiros deploys nunca executaram `app/schemas.py`: o guard morre
+antes, porque a ordem dos imports em `main.py` garante isso. Ou seja, o
+bug do `email-validator` estava empilhado atrás do primeiro — um 500 na
+superfície, dois problemas embaixo. A prova do segundo veio por
+simulação local, bloqueando o import com um finder em `sys.meta_path`,
+exatamente como o build limpo do Vercel teria feito:
 
 ```
 FALHA: ImportError: email-validator is not installed, run `pip install 'pydantic[email]'`
 ```
 
-A auditoria que encontrou o caso varreu os imports de `app/**/*.py` e
-comparou com o `requirements.txt` — e **não achou nada faltando**, porque
-o código nunca escreve `import email_validator`: quem importa é o
-pydantic, dentro do `EmailStr` (`app/schemas.py:7`). É uma dependência
-**implícita** (extra `email` do pydantic). O fiscal criado
-(`test_email_str_tem_dependencia_declarada`) acopla as duas pontas:
-se `EmailStr` existir no schemas, a linha precisa existir no requirements.
+A auditoria que achou o caso varreu os imports de `app/**/*.py` contra o
+`requirements.txt` e **não achou nada faltando**, porque o código nunca
+escreve `import email_validator`: quem importa é o pydantic, dentro do
+`EmailStr` (`app/schemas.py:7`). É dependência implícita (a extra
+`email`). O teste `test_email_str_tem_dependencia_declarada` acopla as
+duas pontas: se `EmailStr` existir no schemas, a linha precisa existir no
+requirements.
 
-### 2.4 Achado do dia: o deploy da CLI subia o `.env`
+## O achado do dia: o .env subia no bundle
 
-O deploy 6 foi a surpresa do dia: um preview **sem** `SECRET_KEY` no
-ambiente respondeu `200 {"status":"ok"}` — o guard deveria ter derrubado.
-Investigação:
+Um preview **sem** `SECRET_KEY` respondeu `200 {"status":"ok"}` — o
+guard deveria ter derrubado. Um push para a `main` nunca leva o `.env`,
+porque o que sobe é o commit. A CLI (`npx vercel deploy`) manda os
+arquivos do diretório, e não tem `.vercelignore` para consultar: sem
+instruções, mandava tudo. O pydantic-settings lê `env_file=".env"`
+(`app/config.py:35`), então a chave de dev local entrava no bundle e o
+guard passava com um segredo que não era o de produção.
 
-| Superfície de deploy | O que sobe | `.env` local |
-|---|---|---|
-| Git (push para a `main`) | só o commit | ❌ nunca |
-| CLI (`npx vercel deploy`) | arquivos do diretório | ⚠️ **subia** |
-
-O pydantic-settings lê `env_file=".env"` (`app/config.py:35`), e a CLI
-não tem `.vercelignore` para consultar — sem instruções, mandava tudo.
-A chave de dev local entrava no bundle e o guard passava com um segredo
-que não era o de produção.
-
-A correção é o `.vercelignore` (o análogo do `.gitignore` para uploads):
+A correção é o `.vercelignore`, o análogo do `.gitignore` para uploads:
 
 ```
 .env
@@ -125,220 +103,106 @@ A correção é o `.vercelignore` (o análogo do `.gitignore` para uploads):
 .venv
 venv
 *.db
-...
 ```
 
-Com ele no lugar, o deploy 7 falhou com o log da seção 2.2 — a prova de
-que o arquivo era o culpado. O teste
+Com ele no lugar, o deploy seguinte falhou com o log da seção anterior —
+a prova de que o arquivo era o culpado. O teste
 `test_vercelignore_bloqueia_segredos_no_upload_da_cli` impede que alguém
-apague as linhas sem quebrar a suíte. O `.gitignore` ganhou a mesma
-proteção (`.env*`) **com a exceção `!.env.example`** — o exemplo é
-documentação e precisa continuar versionável.
+apague as linhas sem quebrar a suíte, e o `.gitignore` ganhou a mesma
+proteção (`.env*`) **com a exceção `!.env.example`**, já que o exemplo é
+documentação e precisa continuar versionável. Resumindo as superfícies:
+git tem `.gitignore`, a CLI tem `.vercelignore`, o painel de env vars tem
+o guard — três camadas, três defesas, um teste para cada.
 
-### 2.5 Neon pela CLI: `vercel integration add neon`
+## Neon pela CLI
 
-Em vez de clicar no painel, o banco foi provisionado pela própria CLI:
+Em vez de clicar no painel:
 
 ```bash
 npx vercel integration add neon --name socialink-db
 ```
 
-A integração criou o banco **e injetou as variáveis** (produzindo o que
-a seção do README prometia):
-
-```
-+ DATABASE_URL          Production, Preview, Development
-+ DATABASE_URL_UNPOOLED  ...
-+ POSTGRES_URL, PGHOST, PGUSER, PGPASSWORD, ...   (18 variáveis)
-```
-
-O nome injetado por padrão é exatamente `DATABASE_URL` — o que
-`app/config.py` lê. O `--prefix` existe só para quem quer outro nome
+A integração criou o banco **e injetou as variáveis** — 18 no total,
+incluindo `DATABASE_URL` em Production, Preview e Development, mais
+`DATABASE_URL_UNPOOLED`, `POSTGRES_URL`, `PGHOST`, `PGUSER`, `PGPASSWORD`.
+O nome injetado por padrão é exatamente `DATABASE_URL`, o que
+`app/config.py` lê; o `--prefix` existe só para quem quer outro nome
 (`NEON2_DATABASE_URL`), e nós não queremos: o código não deve saber de
 qual provedor veio a URL.
 
-O `SECRET_KEY` foi criado pela CLI com valor vindo de
-`/dev/urandom` direto para o Vercel, **sem passar pelo histórico do
-shell nem pelo transcript** (`vercel env add ... < arquivo`, depois
-`rm` do arquivo). Guardas de cada ambiente são independentes — produção
-e preview assinam JWTs com chaves diferentes.
+A `SECRET_KEY` foi criada pela CLI com valor vindo de `/dev/urandom`
+direto para o Vercel, **sem passar pelo histórico do shell nem pelo
+transcript** (`vercel env add ... < arquivo`, depois `rm` do arquivo). As
+guardas de cada ambiente são independentes — produção e preview assinam
+JWTs com chaves diferentes.
 
-### 2.6 O smoke test e a prova de persistência
+## Operação pela CLI
 
-```bash
-GET  /health          → 200 {"status":"ok"}
-GET  /                → 200 {"app":"Socialink","version":"0.1.0","docs":"/docs"}
-POST /auth/registrar  → 201 {"id":1,"nome":"Smoke Dia 14",...}
-POST /auth/login      → 200 {"access_token":"eyJhbGciOiJIUzI1NiIs...","token_type":"bearer"}
-```
+Tudo feito sem sair do terminal: `npx vercel login` (device code no
+navegador), `link --yes --project socialink`, `integration add neon`,
+`env add SECRET_KEY ...`, `redeploy <url>` e `logs <url>` — foi nos logs
+que o guard apareceu.
 
-O token veio assinado (HS256) com a `SECRET_KEY` do Vercel — prova de
-que a env var chega ao runtime. Mas o critério que separa "banco
-externo" de "disco efêmero" é outro: **persistência entre deploys**.
+Duas armadilhas reais no caminho. O `env add` para preview trava num
+prompt de "Git branch" em terminal não-interativo (resolvido com
+`--value` + `--yes`), e `env add` **não altera deploys já existentes** —
+variável nova exige redeploy, senão o build antigo continua sem ela. De
+quebra, o disco da máquina chegou a 100% (`ENOSPC`, a CLI não baixava
+mais): resolvi limpando caches descartáveis (`~/.npm`, `uv`, `pypoetry`,
+`pip`), de 0 para 2,1G livres sem tocar em dados. E logs de deploys
+antigos respondem "No logs found" — runtime logs têm retenção curta,
+então a prova precisa ser capturada logo depois do evento.
 
-```
-1. registrar usuário           → 201 (grava no Neon)
-2. vercel redeploy             → novo deploy, novo cold start
-3. login com o mesmo usuário   → 200 (o registro sobreviveu)
-```
+## O que o dia ensinou
 
-Se os dados estivessem no filesystem da função, o passo 3 retornaria
-401. Voltou 200 — o PostgreSQL está de fato no caminho dos dados.
+Fail fast só se prova quando falha em produção. O guard foi escrito com
+testes unitários no Dia 12, mas só aqui a mensagem andou do código até o
+log do provedor — teste prova o código, deploy prova o caminho inteiro.
 
-E nos logs do deploy, o lifespan contra o banco externo:
+Dois bloqueadores empilhados: `request → import app.main → config/database
+→ [1] guard de SECRET_KEY → (se passar) [2] schemas → EmailStr →
+email-validator`. Um 500 só revela o primeiro da fila; destrinchar a
+ordem de import diz onde olhar, e a simulação local módulo a módulo
+reproduz o ambiente limpo sem precisar de esteira de CI.
 
-```
-λ POST /auth/login
-Iniciando Socialink v0.1.0
-Tabelas criadas com sucesso!
-```
+Segredo é questão de superfície, e as duas primeiras falharam aqui de
+jeitos diferentes: commitar `.env` deixa rastro eterno no histórico,
+subir no bundle da CLI faz o guard passar com a chave errada, faltar a
+env var derruba o deploy (que era o esperado).
 
-`criar_tabelas()` (o `create_all` do Dia 2) rodou no Neon em cada cold
-start — idempotente, como sempre foi desenhado.
+Persistência é critério de aceite. `200 OK` no `/health` prova que a
+função sobe; só o ciclo registro → deploy → login prova que o banco é
+externo. O disco efêmero não consegue fingir isso.
 
-### 2.7 A CLI como painel de operação
-
-A sequência operacional do dia (tudo sem sair do terminal):
-
-```bash
-npx vercel login                          # autorização por device code no navegador
-npx vercel link --yes --project socialink # vincula o diretório ao projeto
-npx vercel integration add neon           # banco + variáveis
-npx vercel env add SECRET_KEY ...         # segredo por ambiente
-npx vercel redeploy <url>                 # novo build com as variáveis
-npx vercel logs <url>                     # logs de runtime (onde o guard apareceu)
-```
-
-Duas armadilhas reais: `env add` para preview trava num prompt de "Git
-branch" em terminal não-interativo (resolvido com `--value` + `--yes`),
-e `env add` **não altera deploys já existentes** — variável nova exige
-redeploy, senão o build antigo continua sem ela.
-
----
-
-## 3. Conceitos-chave aplicados
-
-### 3.1 Fail fast validado onde importa
-
-O guard do Dia 12 foi escrito com testes unitários — mas só no Dia 14
-ele **falhou em produção**, com a mensagem andando do código até o log
-do provedor. Teste prova o código; o deploy prova o caminho inteiro.
-
-### 3.2 Dois bloqueadores empilhados
-
-```
-request → import app.main → config/database → [1] guard de SECRET_KEY
-                                               ↓ (se passar)
-                                          [2] schemas → EmailStr → email-validator
-```
-
-Um 500 só revela o primeiro da fila. A lição: quando o erro de produção
-é genérico, destrinchar a **ordem de import** diz onde olhar — e a
-simulação local (bloquear módulo por módulo) reproduz o ambiente limpo
-sem precisar de uma esteira de CI.
-
-### 3.3 Segredo é questão de superfície
-
-| Superfície | Mecanismo | Risco se esquecer |
-|---|---|---|
-| Git | `.gitignore` | commitar `.env` (histórico eterno) |
-| CLI | `.vercelignore` | subir `.env` no bundle (aconteceu) |
-| Painel/CLI de env vars | guard no `Settings` | deploy sem chave (aconteceu, e era o esperado) |
-
-Três camadas, três arquivos de defesa — e um teste para cada.
-
-### 3.4 Persistência como critério de aceite
-
-`200 OK` no `/health` prova que a função sobe. Só o **ciclo
-registro → deploy → login** prova que o banco é externo. Smoke tests de
-API precisam de um critério que o disco efêmero não consegue fingir.
-
----
-
-## 4. Problemas encontrados e soluções
-
-| # | Problema | Solução |
-|---|----------|---------|
-| 1 | 500 em todas as rotas (`FUNCTION_INVOCATION_FAILED`) | env vars ausentes → guard do Dia 12; criadas via CLI e confirmadas por log |
-| 2 | `email-validator` ausente do `requirements.txt` | linha declarada + teste acoplado ao `EmailStr` (nunca alcançado em produção porque o guard falhava antes — achado por auditoria + simulação) |
-| 3 | Preview sem `SECRET_KEY` respondeu 200 | o `.env` local subia no upload da CLI → `.vercelignore` + teste |
-| 4 | Disco em **100%** (`ENOSPC`, CLI não baixava) | limpeza de caches descartáveis (`~/.npm`, `uv`, `pypoetry`, `pip`) — 0 → 2,1G livres, sem tocar em dados |
-| 5 | `env add` travado no prompt de Git branch em non-interactive | `--value "$(cat arquivo)"` + `--yes` |
-| 6 | Logs "No logs found" em deploys antigos | logs de runtime têm retenção curta; capturar a prova logo após o evento |
-
----
-
-## 5. Como testar
+## Como testar
 
 ```bash
-# Suíte completa
-pytest                                    # 110 passed, 100%
+pytest                          # 110 passed, 100%
+pytest tests/test_deploy.py -q  # contrato de deploy (12 testes)
 
-# Contrato de deploy (12 testes)
-pytest tests/test_deploy.py -q
-
-# Smoke test da URL pública
 curl https://socialink-gilt.vercel.app/health
-curl -X POST https://socialink-gilt.vercel.app/auth/registrar \
-  -H "Content-Type: application/json" \
+curl -X POST .../auth/registrar -H "Content-Type: application/json" \
   -d '{"nome":"Teste","email":"teste@exemplo.com","senha":"senha123"}'
-curl -X POST https://socialink-gilt.vercel.app/auth/login \
-  -H "Content-Type: application/json" \
+curl -X POST .../auth/login -H "Content-Type: application/json" \
   -d '{"email":"teste@exemplo.com","senha":"senha123"}'
 
-# Prova de persistência
-npx vercel redeploy <deployment-url>       # novo deploy
-curl -X POST .../auth/login -d '{...}'     # mesmo usuário → 200
-
-# Onde o guard aparece se faltar SECRET_KEY
-npx vercel logs <url>
+# persistência: registrar, depois `npx vercel redeploy <url>`, e logar de
+# novo com o mesmo usuário — tem que voltar 200
+npx vercel logs <url>           # onde o guard aparece se faltar SECRET_KEY
 ```
 
----
+Os 2 testes novos do dia: `test_email_str_tem_dependencia_declarada`
+(`EmailStr` exige `email-validator` no requirements) e
+`test_vercelignore_bloqueia_segredos_no_upload_da_cli` (`.env*` e venvs
+fora do upload da CLI).
 
-## 6. Status
+## Próximos passos
 
-```
-Name                           Stmts   Miss  Cover
-------------------------------------------------------------
-app/... (12 arquivos)             382      0   100%
-------------------------------------------------------------
-TOTAL                            382      0   100%
+O `plan.md` (Dia 1 a 14) está concluído. As evoluções estão em
+[plan.md §9](../plan.md#9-ideias-de-evolução-depois-do-mvp): paginação e
+busca, e-mail de confirmação, Docker, rate limiting e migrações
+versionadas com Alembic. Na operação: monitorar os logs após deploys,
+rotacionar a `SECRET_KEY` se o repositório algum dia for público, e
+revisar o free tier do Neon quando o projeto crescer.
 
-110 passed, 3 warnings in ~33s
-```
-
-| Teste novo (Dia 14, 2) | O que trava |
-|---|---|
-| `test_email_str_tem_dependencia_declarada` | `EmailStr` ⇒ `email-validator` no requirements |
-| `test_vercelignore_bloqueia_segredos_no_upload_da_cli` | `.env*` e venvs fora do upload da CLI |
-
----
-
-## 7. Ambiente em produção
-
-| Item | Valor |
-|---|---|
-| URL | https://socialink-gilt.vercel.app |
-| Banco | Neon (marketplace do Vercel), PostgreSQL com `sslmode=require` |
-| `SECRET_KEY` | Secret por ambiente (Production e Preview independentes) |
-| Deploys | push na `main` → deploy automático de produção |
-| Logs | `npx vercel logs <url>` (ret curto — capturar em seguida) |
-
----
-
-## 8. Próximos passos (pós-roadmap)
-
-O `plan.md` (Dia 1 a 14) está concluído. Evoluções em
-[plan.md §9](../plan.md#9-ideias-de-evolução-depois-do-mvp):
-paginação e busca, e-mail de confirmação, Docker, rate limiting e
-migrações versionadas com Alembic.
-
-Operação: monitorar os logs após deploys, rotacionar a `SECRET_KEY` se
-o repositório algum dia for público, e revisar o free tier do Neon
-(quando o projeto crescer, migrar o plano).
-
----
-
-**Status:** Dia 14 concluído — **roadmap completo**
-**Próximo:** evoluções pós-MVP (plan.md §9)
+Dia 14 concluído — roadmap completo. Próximo: evoluções pós-MVP.
